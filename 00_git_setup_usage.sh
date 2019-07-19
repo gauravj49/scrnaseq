@@ -30,7 +30,7 @@ git add -A
 git reset <optional filenames>
 
 # Make the first commit
-git commit -m "Initial commit of TRN (transcriptional regulatory network) identification code"
+git commit -m "Initial commit of single cell rnaseq pipeline code"
 
 # Add to github
 # Create a project on github and do not initialize it. We have already done that here.
@@ -38,8 +38,8 @@ git commit -m "Initial commit of TRN (transcriptional regulatory network) identi
 # So far, the above steps is what you would do even if you were not using github. They are the normal steps to start a git repository. Remember that git is distributed (decentralized), means you don't need to have a "central server" (or even a network connection), to use git. Now you want to push the changes to your git repository hosted with github. To you this by telling git to add a remote location, and you do that with this command: git remote add origin https://github.com/yourusername/your-repo-name.git
 # curl -u 'USER' https://api.github.com/user/repos -d '{"name":"REPO"}'
 
-curl -u 'gauravj49' https://api.github.com/user/repos -d '{"name":"TRN"}'
-git remote add origin https://github.com/gauravj49/TRN.git
+curl -u 'gauravj49' https://api.github.com/user/repos -d '{"name":"scrnaseq"}'
+git remote add origin https://github.com/gauravj49/scrnaseq.git
 
 # Once you have done that, git now knows about your remote repository. You can then tell it to push (which is "upload") your commited files:
 git push -u origin master
