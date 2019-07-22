@@ -2,6 +2,8 @@
 
 # ############### Imputation ########################
 
+ipython3
+
 # Denoising using DCA
 import scanpy as sc
 from dca.api import dca
