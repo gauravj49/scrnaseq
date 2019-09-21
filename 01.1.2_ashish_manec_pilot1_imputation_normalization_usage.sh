@@ -10,10 +10,14 @@ from dca.api import dca
 from gjainPyLib import *
 
 ipython # Python 3.6.8 (default, Jan 14 2019, 11:02:34)
-aedata = sc.read_text('input/manac/T_cellranger_filtered_manac_counts_raw_genesymbols.txt')
+# aedata = sc.read_text('input/manac/T_cellranger_filtered_manac_counts_raw_genesymbols.txt')
+aedata = sc.read_10x_mtx(
+    '/home/rad/users/ashish/10x_947_manec_counts/outs/filtered_feature_bc_matrix/',  # the directory with the `.mtx` file
+    var_names='gene_symbols',                  # use gene symbols for the variable names (variables-axis index)
+    cache=True)                                # write a cache file for faster subsequent reading
 aedata.var_names_make_unique()
 aedata
-# Out[30]: AnnData object with n_obs × n_vars = 6398 × 30958
+# Out[30]: AnnData object with n_obs × n_vars = 6398 × 31053
 
 
 output_file = 'output/manac/01_preprocessed/02_denoised'

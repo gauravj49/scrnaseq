@@ -4,13 +4,13 @@ cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 # Generate the counts matrix from 10x genomics cell ranger and copy to input
 
 # Define the output file
-OFILE="input/manac/filtered_feature_bc_matrix.txt"
+OFILE="input/manec/filtered_feature_bc_matrix.txt"
 
 # Get the tab separated file with headers
 ipython3
-input_file = "input/manac/filtered_feature_bc_matrix.txt"
+input_file = "input/manec/filtered_feature_bc_matrix.txt"
 TinputDF   = pd.read_csv(input_file, comment='#', delimiter=",", index_col=0, engine='python')
-TinputDF.to_csv('input/manac/filtered_feature_bc_matrix.txt', sep='\t', header=True, index=True, index_label='GeneID')
+TinputDF.to_csv('input/manec/filtered_feature_bc_matrix.txt', sep='\t', header=True, index=True, index_label='GeneID')
 cltr+d+d
 
 # ADD gene Symbols to the file
@@ -18,8 +18,8 @@ R
 
 # load libraries
 suppressPackageStartupMessages(library("biomaRt", warn.conflicts=FALSE, quietly=TRUE))
-inputfile <- "input/manac/filtered_feature_bc_matrix.txt"
-outputDir <- "input/manac"
+inputfile <- "input/manec/filtered_feature_bc_matrix.txt"
+outputDir <- "input/manec"
 
 # Get the input dataframe
 sdata <- read.table(inputfile, header=TRUE, sep="\t")
@@ -47,9 +47,9 @@ rownames(fdf) <- fdf$GeneID
 fdf$GeneID    <- NULL
 
 ## Writing results to table
-soutputFile <- paste(outputDir,"/cellranger_filtered_manac_counts_raw_genesymbols.txt", sep="")
+soutputFile <- paste(outputDir,"/cellranger_filtered_manec_counts_raw_genesymbols.txt", sep="")
 write.table(x=fdf, file=soutputFile, sep="\t", row.names=FALSE, quote=FALSE)
 # quit()
 
 # Transpose the raw genesymbols file for genes
-datamash -H transpose < input/manac/cellranger_filtered_manac_counts_raw_genesymbols.txt > input/manac/T_cellranger_filtered_manac_counts_raw_genesymbols.txt
+datamash -H transpose < input/manec/cellranger_filtered_manec_counts_raw_genesymbols.txt > input/manec/T_cellranger_filtered_manec_counts_raw_genesymbols.txt
