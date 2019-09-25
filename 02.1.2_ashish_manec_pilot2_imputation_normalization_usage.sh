@@ -1,6 +1,6 @@
 # pwd
 
-# inputdir="/media/rad/SSD1/temp_manec"
+# inputdir="/media/rad/HDD2/temp_manec"
 # ############### Imputation ########################
 
 ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
@@ -10,14 +10,14 @@ import scanpy as sc
 from dca.api import dca
 from gjainPyLib import *
 
-projName        = "stomach1001_mouse"
+projName        = "MANEC_merged_except1079"
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed"; create_dir("{0}".format(output_dir))
-minGenesPerCell = 200
-minCellsPergene = 3
+minGenesPerCell = 100
+minCellsPergene = 1
 
 # aedata = sc.read_text('input/manec/T_cellranger_filtered_manec_counts_raw_genesymbols.txt')
 adata = sc.read_10x_mtx(
-    '/media/rad/SSD1/temp_manec/{0}/outs/filtered_feature_bc_matrix/'.format(projName),  # the directory with the `.mtx` file
+    '/media/rad/HDD2/temp_manec/{0}/outs/filtered_feature_bc_matrix/'.format(projName),  # the directory with the `.mtx` file
     var_names='gene_symbols',                  # use gene symbols for the variable names (variables-axis index)
     cache=True)                                # write a cache file for faster subsequent reading
 adata.var_names_make_unique()
@@ -62,7 +62,7 @@ library(session)
 # Create the output directories and files
 jobdir    <- "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq"
 outputDir <- paste0(jobdir, "/output/manec/pilot2/01_preprocessed"); system(paste("mkdir -p", outputDir, sep=' '))
-projName  <- "bulk1001_mouse"
+projName  <- "MANEC_merged_except1079"
 
 rawinfile  <- paste0("/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed/01_raw_",projName,"_cellranger_filtered_manec_counts_genesymbols.txt")
 dcainfile  <- paste0("/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed/02_denoised_DCA_",projName,"_cellranger_filtered_manec_counts_genesymbols.txt")
