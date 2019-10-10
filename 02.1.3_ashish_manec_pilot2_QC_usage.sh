@@ -65,7 +65,8 @@ aedata = sc.read_text(inputFile); aedata.var_names_make_unique(); aedata
 # p1 = sc.pl.scatter(aedata, 'n_counts', 'n_genes', color='mt_frac')
 # p2 = sc.pl.scatter(aedata[aedata.obs['n_counts']<10000], 'n_counts', 'n_genes', color='mt_frac')
 
-# # For cell cycle QC: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
+# For cell cycle QC: https://nbviewer.jupyter.org/github/theislab/scanpy_usage/blob/master/180209_cell_cycle/cell_cycle.ipynb
+# For batch effects: https://nbviewer.jupyter.org/github/Teichlab/bbknn/blob/master/examples/pancreas.ipynb
 
 # Basic filtering
 sc.pp.filter_cells(adata, min_genes=minGenesPerCell)

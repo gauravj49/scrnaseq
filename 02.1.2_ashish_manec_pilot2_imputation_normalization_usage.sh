@@ -1,4 +1,5 @@
 # pwd
+cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 
 # inputdir="/media/rad/HDD2/temp_manec"
 # ############### Imputation ########################
@@ -10,7 +11,8 @@ import scanpy as sc
 from dca.api import dca
 from gjainPyLib import *
 
-projName        = "MANEC_merged_except1079"
+projName        = "MANEC_merged_except1079_hMYC_forcecells"
+projName        = "MANEC_merged_except1079_hMYC"
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed"; create_dir("{0}".format(output_dir))
 minGenesPerCell = 100
 minCellsPergene = 1
@@ -62,7 +64,9 @@ library(session)
 # Create the output directories and files
 jobdir    <- "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq"
 outputDir <- paste0(jobdir, "/output/manec/pilot2/01_preprocessed"); system(paste("mkdir -p", outputDir, sep=' '))
-projName  <- "MANEC_merged_except1079"
+# projName  <- "MANEC_merged_except1079"
+# projName  <- "MANEC_merged_except1079_hMYC_forcecells"
+projName  <- "MANEC_merged_except1079_hMYC"
 
 rawinfile  <- paste0("/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed/01_raw_",projName,"_cellranger_filtered_manec_counts_genesymbols.txt")
 dcainfile  <- paste0("/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/pilot2/01_preprocessed/02_denoised_DCA_",projName,"_cellranger_filtered_manec_counts_genesymbols.txt")
