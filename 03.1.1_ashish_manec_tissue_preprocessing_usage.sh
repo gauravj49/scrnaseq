@@ -36,6 +36,8 @@ library(ggplot2)
 library(plyr)
 library(MAST)
 
+# Reset random state
+np.random.seed(2105)
 #***************************************************
 # Data processing steps
 # 1) Reading and processing the input data
@@ -178,9 +180,9 @@ adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName)
 # 2.8) Calculations for the visualizations
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
 print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
-sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-sc.pp.neighbors(adata)
-sc.tl.umap(adata)
+sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(adata, random_state = 2105)
+sc.tl.umap(adata, random_state = 2105)
 
 # 2.9) Plot visualizations
 sc.pl.pca_scatter(adata, color='n_counts', show=False)
@@ -260,7 +262,7 @@ adata.raw = adata
 
 # 4) Technical correction
 # 4.1) Batch Correction using ComBat
-sc.pp.combat(adata, key='tissueID')
+<
 
 # 4.2) Highly Variable Genes
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
@@ -298,8 +300,10 @@ adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir,
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
-sc.tl.louvain(adata, key_added='louvain_r1')
-sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=10)
+sc.tl.louvain(adata, key_added='louvain_r1', random_state = 2105)
+sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=2105)
+sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(adata, key_added='louvain', random_state=2105)
 
 # Number of cells in each cluster
 adata.obs['louvain_r0.5'].value_counts()
@@ -319,7 +323,7 @@ adata.obs['louvain_r0.5'].value_counts()
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
-sc.tl.umap(adata)
+sc.tl.umap(adata, random_state = 2105)
 # sc.tl.diffmap(adata)
 # sc.tl.draw_graph(adata)
 
@@ -377,34 +381,91 @@ plt.savefig("{0}/{1}_marker_genes_ranking_cluster_7_6_8.png".format(qcDir, bname
 marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V1.txt'
 markersDF    = pd.read_csv(marker_file, sep="\t")
 marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+
+# For mouse cell atlas marker genes
+ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
+ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
+ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
+ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
 
 cell_annotation = sc.tl.marker_gene_overlap(adata, marker_genes, key='rank_genes_r0.5')
-# cell_annotation
-#                  0    1    2    3    4    5    6    7    8
-# Endocrine      0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Epithelial     0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Immune         0.0  0.0  3.0  3.0  0.0  0.0  0.0  0.0  1.0
-# Intestinal     3.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  1.0
-# Liver          0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Mucous         1.0  0.0  0.0  0.0  0.0  0.0  2.0  0.0  0.0
-# Myocytes       0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Pancreas       5.0  5.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Proliferative  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Stem           0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-# Stomach        1.0  0.0  0.0  0.0  0.0  1.0  0.0  1.0  1.0
-# Stroma         0.0  0.0  0.0  0.0  0.0  3.0  0.0  4.0  0.0
+ma_cell_annotation = sc.tl.marker_gene_overlap(adata, ma_marker_genes, key='rank_genes_r0.5')
+cell_annotation
+#                  0    1    2    3    4    5    6    7    8    9   10   11
+# Endocrine      0.0  1.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Epithelial     0.0  0.0  0.0  0.0  0.0  1.0  0.0  1.0  0.0  1.0  0.0  0.0
+# Immune         0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  2.0  0.0  0.0  1.0
+# Intestinal     0.0  0.0  0.0  2.0  4.0  0.0  1.0  0.0  0.0  0.0  0.0  1.0
+# Liver          0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Mucous         0.0  0.0  0.0  1.0  1.0  0.0  2.0  0.0  0.0  0.0  0.0  0.0
+# Myocytes       0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Pancreas       0.0  0.0  4.0  5.0  2.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Proliferative  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Stem           0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Stomach        0.0  0.0  0.0  1.0  1.0  0.0  0.0  0.0  0.0  0.0  0.0  1.0
+# Stroma         0.0  0.0  0.0  0.0  0.0  0.0  5.0  0.0  0.0  0.0  0.0  0.0
 
 cell_annotation_norm = sc.tl.marker_gene_overlap(adata, marker_genes, key='rank_genes_r0.5', normalize='reference')
 sns.heatmap(cell_annotation_norm, cbar=False, annot=True)
+plt.savefig("{0}/{1}_marker_genes_cell_annotation_norm_heatmap.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+ma_cell_annotation_norm = sc.tl.marker_gene_overlap(adata, ma_marker_genes, key='rank_genes_r0.5', normalize='reference')
+sns.heatmap(ma_cell_annotation_norm, cbar=False, annot=True)
+plt.savefig("{0}/{1}_stomach_marker_list_mouse_cellatlas_V1_annotation_norm_heatmap.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Define a nice colour map for gene expression
 colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
-colors3 = plt.cm.Greys_r(np.linspace(0.0,0.00000000001,20))
+colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,20))
 colorsComb = np.vstack([colors3, colors2])
 mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
 
-sc.pl.umap(adata, color='Chga', use_raw=False, color_map=mymap)
+sc.pl.umap(adata, color=['louvain', 'Vim', 'Mdm2', 'Trp53', 'Irf8', 'Myc', 'Gamt', 'E2f1', 'Pcna', 'Tgfbr2'], use_raw=False, color_map=mymap)
+plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+
+sc.pl.umap(adata, color=['louvain_r0.5','Apoe', 'Dcn', 'Cd74','Pf4', 'Lyz2', 'Ly6c1', 'Plvap', 'Fabp5', 'Birc5', 'Ube2c', 'Dmbt1', 'Cyr61', 'Igfbp3', 'Clps'], use_raw=False, color_map=mymap)
+sc.pl.umap(adata, color=['louvain_r0.5','Apoe', 'Dcn', 'Cd74','Pf4', 'Lyz2', 'Ly6c1', 'Plvap', 'Fabp5', 'Birc5', 'Ube2c', 'Dmbt1', 'Cyr61', 'Igfbp3', 'Clps'], use_raw=False, color_map='hot', show=False)
+plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+
+# Check expression of enterocyte markers
+#Collate all enterocyte markers and get the gene IDs in the data set
+ids_pancreas = np.in1d(adata.var_names, marker_genes['Pancreas'])
+
+#Calculate the mean expression of enterocyte markers
+adata.obs['Pancreas_marker_expr'] = adata.X[:,ids_pancreas].mean(1)
+
+#Plot enterocyte expression
+sc.pl.violin(adata, 'Pancreas_marker_expr', groupby='louvain_r0.5')
+sc.pl.umap(adata, color='Pancreas_marker_expr', color_map=mymap)
+
+# Generate the UMAPs for each marker categories
+for k in marker_genes.keys():
+  ids = np.in1d(adata.var_names, marker_genes[k])
+  adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
+  sc.pl.violin(adata, '{0}_marker_expr'.format(k), groupby='louvain_r0.5', show=False)
+  plt.savefig("{0}/{1}_marker_genes_stomach_{2}_violinPlots.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  sc.pl.umap(adata, color=['louvain','{0}_marker_expr'.format(k)], color_map=mymap, show=False)
+  plt.savefig("{0}/{1}_marker_genes_stomach_{2}_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  
+
+# Generate the UMAPs for each marker categories
+for k in ma_marker_genes.keys():
+  ids = np.in1d(adata.var_names, ma_marker_genes[k])
+  adata.obs['{0}_ma_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
+  sc.pl.violin(adata, '{0}_ma_marker_expr'.format(k), groupby='louvain_r0.5', show=False)
+  plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_violinPlots.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  sc.pl.umap(adata, color=['louvain','{0}_ma_marker_expr'.format(k)], color_map=mymap, show=False)
+  plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  
+
+
+# Categories to rename
+adata.obs['louvain_r0.5'].cat.categories
 
 # 7) Feature selection
 # 8) Dimensionality reduction
+
