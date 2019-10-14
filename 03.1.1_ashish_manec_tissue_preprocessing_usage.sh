@@ -5,6 +5,7 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # Loading the python libraries
 import scanpy as sc
+import scanpy.external as sce
 from gjainPyLib import *
 import pickle
 
@@ -22,9 +23,18 @@ pandas2ri.activate()
 anndata2ri.activate()
 %load_ext rpy2.ipython
 
-# Loading R libraries
+# # Loading R libraries
 %%R 
-library(SCnorm)
+# library(SCnorm)
+library(scran)
+library(RColorBrewer)
+# library(slingshot)
+# library(monocle)
+library(gam)
+# library(clusterExperiment)
+library(ggplot2)
+library(plyr)
+library(MAST)
 
 #***************************************************
 # Data processing steps
@@ -37,6 +47,9 @@ library(SCnorm)
 # 7) Feature selection
 # 8) Dimensionality reduction
 #***************************************************
+# Source: https://github.com/theislab/single-cell-tutorial/blob/master/latest_notebook/Case-study_Mouse-intestinal-epithelium_1906.ipynb
+#***************************************************
+
 
 # System variables and directories
 projName        = "manec_tissues_merged_except1079" # MANEC_merged_except1079_hMYC_forcecells
@@ -51,7 +64,6 @@ countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
 # 1 Reading the data
 # Merge 10x datasets for different mices
 # https://github.com/theislab/scanpy/issues/267
-# Source: https://github.com/theislab/single-cell-tutorial/blob/master/latest_notebook/Case-study_Mouse-intestinal-epithelium_1906.ipynb
 tissueFilenames = [
                     'input/manec/pilot2/bulk1001_mouse_filtered_feature_bc_matrix.h5', 
                     'input/manec/pilot2/bulk997_mouse_filtered_feature_bc_matrix.h5', 
@@ -128,7 +140,6 @@ plt.savefig("{0}/{1}_genes_histogramplot.png".format(qcDir, bname) , bbox_inches
 p7 = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<1000], kde=False, bins=500); # plt.show()
 plt.savefig("{0}/{1}_genes_histogramplot_lessthan_1000.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
-
 # 2.5) Filter cells according to identified QC thresholds:
 origadata = adata.copy()
 print('Total number of cells: {:d}'.format(adata.n_obs))
@@ -160,30 +171,92 @@ print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
 # Total number of genes: 31053
 # Number of genes after cell filter: 16263
 
-# Save the filtered raw data as tab separated matrix 
+# 2.7) Save the filtered raw data as tab separated matrix 
 adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
 adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
 
-# 3) Normalization + log transformation
+# 2.8) Calculations for the visualizations
+sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
+print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
+sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)
 
-# Get the raw matrix to pass it along to Scnorm
-rawMat       = adata.to_df().T
-input_groups = adata.obs['tissueID'].tolist()
+# 2.9) Plot visualizations
+sc.pl.pca_scatter(adata, color='n_counts', show=False)
+plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color=['tissueID'], show=False)
+plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
-with open('conditions.txt', 'w') as f: f.write("\n".join(str(item) for item in input_groups))
+########################
+# 3) Expression recovery (denoising), Normalization and log transformation
+# # Denoise the data on raw counts
+# sce.pp.dca(adata, batchnorm=False, normalize_per_cell=False)
+# NOTE: The denoising is causing the batches effects to get stronger and even with combat or BBKNm they are still are there with high impact.
+#       For this Manec dataset, I`ll turn off the DCA
+# # Save the denoised data
+# adata.to_df().to_csv("{0}/02_denoised_DCA_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
+# adata.to_df().T.to_csv("{0}/02_denoised_DCA_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
 
-# Run Scnorm in R
-%%R -i rawMat -i input_groups -o normRawData
-groups <- (as.vector(unlist(input_groups)))
-normRawMat  <- SCnorm(Data=rawMat, Conditions=groups, K=2)
-normRawData <- results(normRawMat, type = "NormalizedData")
+
+# # Get the raw matrix to pass it along to Scnorm
+# rawMat       = adata.to_df().T
+# input_groups = adata.obs['tissueID'].tolist()
+# with open('conditions.txt', 'w') as f: f.write("\n".join(str(item) for item in input_groups))
+# # Run Scnorm in R
+# %%R -i rawMat -i input_groups -o normRawData
+# groups <- (as.vector(unlist(input_groups)))
+# normRawMat  <- SCnorm(Data=rawMat, Conditions=groups, K=2)
+# normRawData <- results(normRawMat, type = "NormalizedData")
+# # Keep the count data in a counts layer
+# adata.layers["counts"] = adata.X.copy()
+# # Normalize and log adata 
+# adata.X = normRawData
+# sc.pp.log1p(adata)
+
+# Normalization using SCRAN
+# This method requires a coarse clustering input to improve size factor esimation performance. 
+# Thus, we use a simple preprocessing approach and cluster the data at a low resolution to get an 
+# input for the size factor estimation. The basic preprocessing includes assuming all size factors 
+# are equal (library size normalization to counts per million - CPM) and log-transforming the count data.
+
+# Perform a clustering for scran normalization in clusters
+adata_pp = adata.copy()
+sc.pp.normalize_per_cell(adata_pp, counts_per_cell_after=1e6)
+sc.pp.log1p(adata_pp)
+sc.pp.pca(adata_pp, n_comps=15)
+sc.pp.neighbors(adata_pp)
+sc.tl.louvain(adata_pp, key_added='groups', resolution=0.5)
+
+# Preprocess variables for scran normalization
+input_groups = adata_pp.obs['groups']
+data_mat = adata.X.T
+
+# Run scran in R
+%%R -i data_mat -i input_groups -o size_factors
+size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.1)
+
+# Delete adata_pp
+del adata_pp
+
+# Visualize the estimated size factors
+adata.obs['size_factors'] = size_factors
+sc.pl.scatter(adata, 'size_factors', 'n_counts', show=False)
+plt.savefig("{0}/{1}_scrna_sizefactors_vs_ncounts.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.scatter(adata, 'size_factors', 'n_genes' , show=False)
+plt.savefig("{0}/{1}_scrna_sizefactors_vs_ngenes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sns.distplot(size_factors, bins=50, kde=False)
+plt.savefig("{0}/{1}_scrna_sizefactors_histogram.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Keep the count data in a counts layer
 adata.layers["counts"] = adata.X.copy()
 
-# Normalize and log adata 
-adata.X = normRawData
+# Normalize adata 
+adata.X /= adata.obs['size_factors'].values[:,None]
 sc.pp.log1p(adata)
+
+# Store the full data set in 'raw' as log-normalised data for statistical testing
+adata.raw = adata
 
 # 4) Technical correction
 # 4.1) Batch Correction using ComBat
@@ -192,6 +265,8 @@ sc.pp.combat(adata, key='tissueID')
 # 4.2) Highly Variable Genes
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
 print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
+sc.pl.highly_variable_genes(adata, show=False)
+plt.savefig("{0}/{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Highly variable gene information is stored automatically in the adata.var['highly_variable'] field. The dataset now contains:
 # a 'counts' layer with count data
@@ -199,7 +274,6 @@ print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['high
 # batch corrected data in adata.X
 # highly variable gene annotations in adata.var['highly_variable']
 # The HVG labels will be used to subselect genes for clustering and trajectory analysis.
-
 
 # 5) Biological correction
 # 5.1) Cell cycle scoring
@@ -213,23 +287,124 @@ s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
 g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
 
 sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
-sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False)
+sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False, show=False)
 plt.savefig("{0}/{1}_S_G2M_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color='phase', use_raw=False)
+sc.pl.umap(adata, color='phase', use_raw=False, show=False)
 plt.savefig("{0}/{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Save the normalized, log transformed, batch and cell cycle corrected data
 adata.to_df().to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
 adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
 
+# 7) Clustering
+# 7.1) Perform clustering - using highly variable genes
+sc.tl.louvain(adata, key_added='louvain_r1')
+sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=10)
 
-# 6) Expression recovery (denoising)
-# Denoise the data on raw counts
-dca(adata)
+# Number of cells in each cluster
+adata.obs['louvain_r0.5'].value_counts()
+# 0    2232
+# 1    1197
+# 2    1090
+# 3     864
+# 4     831
+# 5     504
+# 6     226
+# 7     207
+# 8     110
+# Name: louvain_r0.5, dtype: int64
 
-# Save the denoised data
-adata.to_df().to_csv("{0}/02_denoised_DCA_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-adata.to_df().T.to_csv("{0}/02_denoised_DCA_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+# 4.3) Visualizations
+
+# Calculations for the visualizations
+sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)
+# sc.tl.diffmap(adata)
+# sc.tl.draw_graph(adata)
+
+# Plot visualizations
+# Visualize the clustering and how this is reflected by different technical covariates
+sc.pl.umap(adata, color=['louvain_r1', 'louvain_r0.5'], palette=sc.pl.palettes.default_64, show=False)
+plt.savefig("{0}/{1}_clustering_louvain_r1_r05_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# UMAPs
+sc.pl.pca_scatter(adata, color='n_counts', show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color=['tissueID'], show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color='n_counts', show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color=['log_counts', 'mt_frac'], show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# sc.pl.pca_scatter(adata, color='n_counts')
+# sc.pl.umap(adata, color='n_counts')
+# sc.pl.umap(adata, color='tissueID')
+# sc.pl.diffmap(adata, color='n_counts', components=['1,2','1,3'])
+# sc.pl.draw_graph(adata, color='n_counts')
+
+# At a resolution of r=0.5 the broad clusters in the visualization are captured well in the data. 
+# The covariate plots show that clusters 0 and 6 in this data set are characterized by low and high 
+# counts respectively. In the case of cluster 6 this may be biologically relevant, while cluster 0 
+# is also characterized by higher mitochondrial read fractions. This indicates cell stress.
+
+# 7.2) Marker genes & cluster annotation
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_r0.5')
+
+# Plot marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', groups=['0','1','2'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_cluster_0_1_2.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', groups=['3','4','5'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_cluster_3_4_5.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', groups=['6', '7', '8'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_cluster_7_6_8.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Known marker genes:
+# marker_genes = dict()
+# marker_genes['Stem'] = ['Lgr5', 'Ascl2', 'Slc12a2', 'Axin2', 'Olfm4', 'Gkn3']
+# marker_genes['Enterocyte (Proximal)'] = ['Gsta1','Rbp2','Adh6a','Apoa4','Reg3a','Creb3l3','Cyp3a13','Cyp2d26','Ms4a10','Ace','Aldh1a1','Rdh7','H2-Q2', 'Hsd17b6','Gstm3','Gda','Apoc3','Gpd1','Fabp1','Slc5a1','Mme','Cox7a1','Gsta4','Lct','Khk','Mttp','Xdh','Sult1b1', 'Treh','Lpgat1','Dhrs1','Cyp2c66','Ephx2','Cyp2c65','Cyp3a25','Slc2a2','Ugdh','Gstm6','Retsat','Ppap2a','Acsl5', 'Cyb5r3','Cyb5b','Ckmt1','Aldob','Ckb','Scp2','Prap1']
+# marker_genes['Enterocyte (Distal)'] = ['Tmigd1','Fabp6','Slc51b','Slc51a','Mep1a','Fam151a','Naaladl1','Slc34a2','Plb1','Nudt4','Dpep1','Pmp22','Xpnpep2','Muc3','Neu1','Clec2h','Phgr1','2200002D01Rik','Prss30','Cubn','Plec','Fgf15','Crip1','Krt20','Dhcr24','Myo15b','Amn','Enpep','Anpep','Slc7a9','Ocm','Anxa2','Aoc1','Ceacam20','Arf6','Abcb1a','Xpnpep1','Vnn1','Cndp2','Nostrin','Slc13a1','Aspa','Maf','Myh14']
+# marker_genes['Goblet'] = ['Agr2', 'Fcgbp', 'Tff3', 'Clca1', 'Zg16', 'Tpsg1', 'Muc2', 'Galnt12', 'Atoh1', 'Rep15', 'S100a6', 'Pdia5', 'Klk1', 'Pla2g10', 'Spdef', 'Lrrc26', 'Ccl9', 'Bace2', 'Bcas1', 'Slc12a8', 'Smim14', 'Tspan13', 'Txndc5', 'Creb3l4', 'C1galt1c1', 'Creb3l1', 'Qsox1', 'Guca2a', 'Scin', 'Ern2', 'AW112010', 'Fkbp11', 'Capn9', 'Stard3nl', 'Slc50a1', 'Sdf2l1', 'Hgfa', 'Galnt7', 'Hpd', 'Ttc39a', 'Tmed3', 'Pdia6', 'Uap1', 'Gcnt3', 'Tnfaip8', 'Dnajc10', 'Ergic1', 'Tsta3', 'Kdelr3', 'Foxa3', 'Tpd52', 'Tmed9', 'Spink4', 'Nans', 'Cmtm7', 'Creld2', 'Tm9sf3', 'Wars', 'Smim6', 'Manf', 'Oit1', 'Tram1', 'Kdelr2', 'Xbp1', 'Serp1', 'Vimp', 'Guk1', 'Sh3bgrl3', 'Cmpk1', 'Tmsb10', 'Dap', 'Ostc', 'Ssr4', 'Sec61b', 'Pdia3', 'Gale', 'Klf4', 'Krtcap2', 'Arf4', 'Sep15', 'Ssr2', 'Ramp1', 'Calr', 'Ddost']
+# marker_genes['Paneth'] = ['Gm15284', 'AY761184', 'Defa17', 'Gm14851', 'Defa22', 'Defa-rs1', 'Defa3', 'Defa24', 'Defa26', 'Defa21', 'Lyz1', 'Gm15292', 'Mptx2', 'Ang4']
+# marker_genes['Enteroendocrine'] = ['Chgb', 'Gfra3', 'Cck', 'Vwa5b2', 'Neurod1', 'Fev', 'Aplp1', 'Scgn', 'Neurog3', 'Resp18', 'Trp53i11', 'Bex2', 'Rph3al', 'Scg5', 'Pcsk1', 'Isl1', 'Maged1', 'Fabp5', 'Celf3', 'Pcsk1n', 'Fam183b', 'Prnp', 'Tac1', 'Gpx3', 'Cplx2', 'Nkx2-2', 'Olfm1', 'Vim', 'Rimbp2', 'Anxa6', 'Scg3', 'Ngfrap1', 'Insm1', 'Gng4', 'Pax6', 'Cnot6l', 'Cacna2d1', 'Tox3', 'Slc39a2', 'Riiad1']
+# marker_genes['Tuft'] = ['Alox5ap', 'Lrmp', 'Hck', 'Avil', 'Rgs13', 'Ltc4s', 'Trpm5', 'Dclk1', 'Spib', 'Fyb', 'Ptpn6', 'Matk', 'Snrnp25', 'Sh2d7', 'Ly6g6f', 'Kctd12', '1810046K07Rik', 'Hpgds', 'Tuba1a', 'Pik3r5', 'Vav1', 'Tspan6', 'Skap2', 'Pygl', 'Ccdc109b', 'Ccdc28b', 'Plcg2', 'Ly6g6d', 'Alox5', 'Pou2f3', 'Gng13', 'Bmx', 'Ptpn18', 'Nebl', 'Limd2', 'Pea15a', 'Tmem176a', 'Smpx', 'Itpr2', 'Il13ra1', 'Siglecf', 'Ffar3', 'Rac2', 'Hmx2', 'Bpgm', 'Inpp5j', 'Ptgs1', 'Aldh2', 'Pik3cg', 'Cd24a', 'Ethe1', 'Inpp5d', 'Krt23', 'Gprc5c', 'Reep5', 'Csk', 'Bcl2l14', 'Tmem141', 'Coprs', 'Tmem176b', '1110007C09Rik', 'Ildr1', 'Galk1', 'Zfp428', 'Rgs2', 'Inpp5b', 'Gnai2', 'Pla2g4a', 'Acot7', 'Rbm38', 'Gga2', 'Myo1b', 'Adh1', 'Bub3', 'Sec14l1', 'Asah1', 'Ppp3ca', 'Agt', 'Gimap1', 'Krt18', 'Pim3', '2210016L21Rik', 'Tmem9', 'Lima1', 'Fam221a', 'Nt5c3', 'Atp2a3', 'Mlip', 'Vdac3', 'Ccdc23', 'Tmem45b', 'Cd47', 'Lect2', 'Pla2g16', 'Mocs2', 'Arpc5', 'Ndufaf3']
+
+# Read the marker genes into a pandas dataframe
+marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V1.txt'
+markersDF    = pd.read_csv(marker_file, sep="\t")
+marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+
+
+cell_annotation = sc.tl.marker_gene_overlap(adata, marker_genes, key='rank_genes_r0.5')
+# cell_annotation
+#                  0    1    2    3    4    5    6    7    8
+# Endocrine      0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Epithelial     0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Immune         0.0  0.0  3.0  3.0  0.0  0.0  0.0  0.0  1.0
+# Intestinal     3.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  1.0
+# Liver          0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Mucous         1.0  0.0  0.0  0.0  0.0  0.0  2.0  0.0  0.0
+# Myocytes       0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Pancreas       5.0  5.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Proliferative  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Stem           0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+# Stomach        1.0  0.0  0.0  0.0  0.0  1.0  0.0  1.0  1.0
+# Stroma         0.0  0.0  0.0  0.0  0.0  3.0  0.0  4.0  0.0
+
+cell_annotation_norm = sc.tl.marker_gene_overlap(adata, marker_genes, key='rank_genes_r0.5', normalize='reference')
+sns.heatmap(cell_annotation_norm, cbar=False, annot=True)
+
+# Define a nice colour map for gene expression
+colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
+colors3 = plt.cm.Greys_r(np.linspace(0.0,0.00000000001,20))
+colorsComb = np.vstack([colors3, colors2])
+mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
+
+sc.pl.umap(adata, color='Chga', use_raw=False, color_map=mymap)
 
 # 7) Feature selection
 # 8) Dimensionality reduction
