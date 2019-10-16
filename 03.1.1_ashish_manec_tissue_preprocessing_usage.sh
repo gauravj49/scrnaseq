@@ -18,6 +18,9 @@ import anndata2ri
 # Ignore R warning messages
 rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)
 
+# Reset random state
+np.random.seed(2105)
+
 # Automatically convert rpy2 outputs to pandas dataframes
 pandas2ri.activate()
 anndata2ri.activate()
@@ -36,8 +39,6 @@ library(ggplot2)
 library(plyr)
 library(MAST)
 
-# Reset random state
-np.random.seed(2105)
 #***************************************************
 # Data processing steps
 # 1) Reading and processing the input data
@@ -51,7 +52,6 @@ np.random.seed(2105)
 #***************************************************
 # Source: https://github.com/theislab/single-cell-tutorial/blob/master/latest_notebook/Case-study_Mouse-intestinal-epithelium_1906.ipynb
 #***************************************************
-
 
 # System variables and directories
 projName        = "manec_tissues_merged_except1079" # MANEC_merged_except1079_hMYC_forcecells
@@ -70,7 +70,8 @@ tissueFilenames = [
                     'input/manec/pilot2/bulk1001_mouse_filtered_feature_bc_matrix.h5', 
                     'input/manec/pilot2/bulk997_mouse_filtered_feature_bc_matrix.h5', 
                     'input/manec/pilot2/bulk1018_mouse_filtered_feature_bc_matrix.h5', 
-                    'input/manec/pilot2/stomach1001_mouse_filtered_feature_bc_matrix.h5'
+                    'input/manec/pilot2/stomach1001_mouse_filtered_feature_bc_matrix.h5',
+                    'input/manec/pilot2/bulk1079_mouse_filtered_feature_bc_matrix.h5'
                   ]
 adatas          = [sc.read_10x_h5(f) for f in tissueFilenames]
 adata           = adatas[0].concatenate(adatas[1:])
@@ -262,7 +263,7 @@ adata.raw = adata
 
 # 4) Technical correction
 # 4.1) Batch Correction using ComBat
-<
+sc.pp.combat(adata, key='tissueID')
 
 # 4.2) Highly Variable Genes
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
@@ -300,7 +301,7 @@ adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir,
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
-sc.tl.louvain(adata, key_added='louvain_r1', random_state = 2105)
+sc.tl.louvain(adata, resolution=1.0, key_added='louvain_r1'  , random_state=2105)
 sc.tl.louvain(adata, resolution=0.9, key_added='louvain_r0.9', random_state=2105)
 sc.tl.louvain(adata, resolution=0.8, key_added='louvain_r0.8', random_state=2105)
 sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
