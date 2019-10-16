@@ -301,9 +301,20 @@ adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir,
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
 sc.tl.louvain(adata, key_added='louvain_r1', random_state = 2105)
+sc.tl.louvain(adata, resolution=0.9, key_added='louvain_r0.9', random_state=2105)
+sc.tl.louvain(adata, resolution=0.8, key_added='louvain_r0.8', random_state=2105)
+sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
+sc.tl.louvain(adata, resolution=0.6, key_added='louvain_r0.6', random_state=2105)
 sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=2105)
+sc.tl.louvain(adata, resolution=0.4, key_added='louvain_r0.4', random_state=2105)
 sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(adata, resolution=0.2, key_added='louvain_r0.2', random_state=2105)
+sc.tl.louvain(adata, resolution=0.1, key_added='louvain_r0.1', random_state=2105)
 sc.tl.louvain(adata, key_added='louvain', random_state=2105)
+
+for i in np.linspace(0.1,0.9,9):
+  print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
+
 
 # Number of cells in each cluster
 adata.obs['louvain_r0.5'].value_counts()
@@ -367,6 +378,16 @@ plt.savefig("{0}/{1}_marker_genes_ranking_cluster_3_4_5.png".format(qcDir, bname
 sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', groups=['6', '7', '8'], fontsize=12, show=False)
 plt.savefig("{0}/{1}_marker_genes_ranking_cluster_7_6_8.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
+# Pairwise between 0,2,5,10
+for l in list(itertools.combinations(['0','2','5','10'], 2)):
+  grp = l[0]
+  ref = l[1]
+  print(list(l))
+  sc.tl.rank_genes_groups(adata, groupby='louvain_r1', key_added='rank_genes_{0}_{1}'.format(grp, ref), groups = list(grp), reference = '{}'.format(ref))
+  sc.pl.rank_genes_groups(adata, key='rank_genes_{0}_{1}'.format(grp, ref), fontsize=12, show=False)
+  plt.savefig("{0}/{1}_marker_genes_ranking_pairwise_{2}_{3}.png".format(qcDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
+
+
 # Known marker genes:
 # marker_genes = dict()
 # marker_genes['Stem'] = ['Lgr5', 'Ascl2', 'Slc12a2', 'Axin2', 'Olfm4', 'Gkn3']
@@ -426,21 +447,29 @@ sc.pl.umap(adata, color=['louvain', 'Vim', 'Mdm2', 'Trp53', 'Irf8', 'Myc', 'Gamt
 plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 
-sc.pl.umap(adata, color=['louvain_r0.5','Apoe', 'Dcn', 'Cd74','Pf4', 'Lyz2', 'Ly6c1', 'Plvap', 'Fabp5', 'Birc5', 'Ube2c', 'Dmbt1', 'Cyr61', 'Igfbp3', 'Clps'], use_raw=False, color_map=mymap)
+sc.pl.umap(adata, color=['Ctrb1','Prss2', 'Prss3'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+sc.pl.umap(adata, color=['Birc5', 'Casp3', 'Stat3', 'Alb'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+
+sc.pl.umap(adata, color=['Birc5', 'Stat3', 'Reg1', 'Gm26917', 'Ctrb1', 'Clps', 'Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+sc.pl.umap(adata, color=['Birc5', 'Blvrb', 'Car2', 'Hbb-bt', 'Clps', 'Hbb-bs', 'Hba-a1','Hba-a2', 'Hspa1b', 'Apoe', 'C1qb', 'Cxcl2', 'Slpi'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+sc.pl.umap(adata, color=['Sh2d1a', 'Cd3d','Cd3e','Cd8a','Retnlg','S100a8','S100a9','Cxcl2', 'Slpi', 'Srgn', 'Cd84', 'Stip1','Cd44', 'Jak1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+
+
+
 sc.pl.umap(adata, color=['louvain_r0.5','Apoe', 'Dcn', 'Cd74','Pf4', 'Lyz2', 'Ly6c1', 'Plvap', 'Fabp5', 'Birc5', 'Ube2c', 'Dmbt1', 'Cyr61', 'Igfbp3', 'Clps'], use_raw=False, color_map='hot', show=False)
 plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 
-# Check expression of enterocyte markers
-#Collate all enterocyte markers and get the gene IDs in the data set
-ids_pancreas = np.in1d(adata.var_names, marker_genes['Pancreas'])
+# # Check expression of enterocyte markers
+# #Collate all enterocyte markers and get the gene IDs in the data set
+# ids_pancreas = np.in1d(adata.var_names, marker_genes['Pancreas'])
 
-#Calculate the mean expression of enterocyte markers
-adata.obs['Pancreas_marker_expr'] = adata.X[:,ids_pancreas].mean(1)
+# #Calculate the mean expression of enterocyte markers
+# adata.obs['Pancreas_marker_expr'] = adata.X[:,ids_pancreas].mean(1)
 
-#Plot enterocyte expression
-sc.pl.violin(adata, 'Pancreas_marker_expr', groupby='louvain_r0.5')
-sc.pl.umap(adata, color='Pancreas_marker_expr', color_map=mymap)
+# #Plot enterocyte expression
+# sc.pl.violin(adata, 'Pancreas_marker_expr', groupby='louvain_r0.5')
+# sc.pl.umap(adata, color='Pancreas_marker_expr', color_map=mymap)
 
 # Generate the UMAPs for each marker categories
 for k in marker_genes.keys():
@@ -453,18 +482,50 @@ for k in marker_genes.keys():
   
 
 # Generate the UMAPs for each marker categories
+plt.figure(figsize=(100,8))
 for k in ma_marker_genes.keys():
   ids = np.in1d(adata.var_names, ma_marker_genes[k])
   adata.obs['{0}_ma_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  sc.pl.violin(adata, '{0}_ma_marker_expr'.format(k), groupby='louvain_r0.5', show=False)
-  plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_violinPlots.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
-  sc.pl.umap(adata, color=['louvain','{0}_ma_marker_expr'.format(k)], color_map=mymap, show=False)
-  plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  # sc.pl.violin(adata, '{0}_ma_marker_expr'.format(k), groupby='louvain_r0.5', show=False)
+  # plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_violinPlots.png".format(qcDir, bname, k) , bbox_inches='tight'); plt.close('all')
+  # sc.pl.umap(adata, color=['louvain','{0}_ma_marker_expr'.format(k)], color_map=mymap, show=False)
+  sc.pl.umap(adata, color=['{0}_ma_marker_expr'.format(k)], color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  plt.savefig("{0}/{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight', dpi=300); plt.close('all')
   
-
-
 # Categories to rename
 adata.obs['louvain_r0.5'].cat.categories
+
+# On the subclusters
+sbadata =adata.copy()
+# sc.pl.umap(sbadata, color='louvain', palette=sc.pl.palettes.vega_20, size=50)
+plt.figure(figsize=(100,8))
+sc.pl.umap(sbadata, color='louvain_r1', palette=sc.pl.palettes.vega_20, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/{1}_Louvainr05_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# Groups interested = 0, 2, 5, 10
+sc.tl.rank_genes_groups(sbadata, groupby='louvain_r1', key_added='rank_genes_0_2', groups = '2', reference = '0')
+sc.pl.rank_genes_groups(sbadata, key='rank_genes_0_2', fontsize=12)
+
+
+grp = ['4', '6', '13']
+ref = '11'
+sc.tl.rank_genes_groups(adata, groupby='louvain_r1', key_added='rank_genes_{0}_{1}'.format(grp, ref), groups = list(grp), reference =  '{}'.format(ref))
+sc.pl.rank_genes_groups(adata, key='rank_genes_{0}_{1}'.format(grp, ref), fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_pairwise_{2}_{3}.png".format(qcDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
+
+# Top genes in cluster 11
+cluster11 = adata[(adata.obs['louvain_r1'] == '11')].to_df() 
+t = np.mean(cluster11, axis=0) 
+t.sort_values(ascending=False)[0:25] 
+
+
+# DO Not Delete ... this can be use to visualize a subset of clusters  
+# subadata02 = sbadata[(sbadata.obs['louvain'] == '0') | (sbadata.obs['louvain'] == '2')]
+# subadata02.shape
+# sc.tl.louvain(subadata02, restrict_to=('louvain', ['0', '2']), resolution=0.2, key_added='louvain_0_2')
+# sc.pl.umap(subadata02, color='louvain_0_2', palette=sc.pl.palettes.vega_20, size=50)
+
+
 
 # 7) Feature selection
 # 8) Dimensionality reduction
