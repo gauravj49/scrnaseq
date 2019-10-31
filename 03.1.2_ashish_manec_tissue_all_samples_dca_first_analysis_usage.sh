@@ -317,12 +317,19 @@ sc.pl.umap(adata, color=['louvain', 'louvain_r1', 'louvain_r0.9', 'louvain_r0.8'
 plt.savefig("{0}/03_dcaNorm_{1}_clustering_louvain_all_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # UMAPs
+plt.figure(figsize=(100,8))
 sc.pl.pca_scatter(adata, color='n_counts', size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/03_dcaNorm_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+plt.figure(figsize=(100,8))
 sc.pl.umap(adata, color=['tissueID'], size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/03_dcaNorm_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+plt.figure(figsize=(100,8))
 sc.pl.umap(adata, color='n_counts', size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/03_dcaNorm_{1}_clustering_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+plt.figure(figsize=(100,8))
 sc.pl.umap(adata, color=['log_counts', 'mt_frac'], size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/03_dcaNorm_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 

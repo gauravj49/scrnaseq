@@ -368,6 +368,7 @@ plt.savefig("{0}/02_norm_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir,
 # 7.2) Marker genes & cluster annotation
 # Calculate marker genes
 sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_r0.5')
+sc.tl.rank_genes_groups(adata, groupby='louvain_r1', key_added='rank_genes_r1')
 
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', groups=['0','1','2'], fontsize=12, show=False)
@@ -448,14 +449,14 @@ sc.pl.umap(adata, color=['louvain', 'Vim', 'Mdm2', 'Trp53', 'Irf8', 'Myc', 'Gamt
 plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 
-sc.pl.umap(adata, color=['Ctrb1','Prss2', 'Prss3'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+sc.pl.umap(adata, color=['Ctrb1','Cd2', 'Myc', 'Rb1','Cdkn2a'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 sc.pl.umap(adata, color=['Birc5', 'Casp3', 'Stat3', 'Alb'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 
 sc.pl.umap(adata, color=['Birc5', 'Stat3', 'Reg1', 'Gm26917', 'Ctrb1', 'Clps', 'Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 sc.pl.umap(adata, color=['Birc5', 'Blvrb', 'Car2', 'Hbb-bt', 'Clps', 'Hbb-bs', 'Hba-a1','Hba-a2', 'Hspa1b', 'Apoe', 'C1qb', 'Cxcl2', 'Slpi'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 sc.pl.umap(adata, color=['Sh2d1a', 'Cd3d','Cd3e','Cd8a','Retnlg','S100a8','S100a9','Cxcl2', 'Slpi', 'Srgn', 'Cd84', 'Stip1','Cd44', 'Jak1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 
-
+sc.pl.umap(adata, color=['Btg1', 'Morf4l2','Marcks','Ptprc','BC005537','Ctnnb1','Ptma','AW112010', 'Hnrnpf', 'Hspa1b', 'Hnrnph1', 'Dazap2','Laptm5', 'Id2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 
 sc.pl.umap(adata, color=['louvain_r0.5','Apoe', 'Dcn', 'Cd74','Pf4', 'Lyz2', 'Ly6c1', 'Plvap', 'Fabp5', 'Birc5', 'Ube2c', 'Dmbt1', 'Cyr61', 'Igfbp3', 'Clps'], use_raw=False, color_map='hot', show=False)
 plt.savefig("{0}/{1}_marker_genes_adult_stomach_mouse_cell_atlas_UMAPs.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
@@ -514,10 +515,33 @@ sc.tl.rank_genes_groups(adata, groupby='louvain_r1', key_added='rank_genes_{0}_{
 sc.pl.rank_genes_groups(adata, key='rank_genes_{0}_{1}'.format(grp, ref), fontsize=12, show=False)
 plt.savefig("{0}/{1}_marker_genes_ranking_pairwise_{2}_{3}.png".format(qcDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
 
-# Top genes in cluster 11
-cluster11 = adata[(adata.obs['louvain_r1'] == '11')].to_df() 
-t = np.mean(cluster11, axis=0) 
-t.sort_values(ascending=False)[0:25] 
+# Plot umap for the top genes for each cluster
+clusterDir = "{0}/clusterDir".format(qcDir); create_dir(clusterDir)
+for cid in [0, 2, 5, 10]:
+  cluster = adata[(adata.obs['louvain_r1'] == '{0}'.format(cid))].to_df() 
+  topGenes = np.mean(cluster, axis=0).sort_values(ascending=False)[0:25].index.tolist()
+  print("\n- Cluster{0}: {1}".format(cid, topGenes))
+  plt.figure(figsize=(100,8))
+  sc.pl.umap(adata, color=topGenes, use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  plt.savefig("{0}/{1}_top_25_genes_cluster{2}_UMAPs.png".format(clusterDir, bname, cid) , bbox_inches='tight'); plt.close('all')
+  
+# Plot umap for the top marker genes for each cluster
+markerDir = "{0}/markerDir/pdf".format(qcDir); create_dir(markerDir)
+for cid in range(len(adata.uns['rank_genes_r1']['names'])):
+  topGenes = adata.uns['rank_genes_r1']['names'][cid].tolist()
+  print("\n- Group{0}: {1}".format(cid, topGenes))
+  # plt.figure(figsize=(100,8))
+  # sc.pl.umap(adata, color=topGenes, use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  # plt.savefig("{0}/{1}_marker_genes_group{2}_UMAPs.png".format(markerDir, bname, cid) , bbox_inches='tight'); plt.close('all')
+  sc.pl.umap(adata, color=topGenes, use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor=None, show=False)
+  plt.savefig("{0}/{1}_marker_genes_group{2}_UMAPs.pdf".format(markerDir, bname, cid) , bbox_inches='tight'); plt.close('all')
+  
+# Assign the celltypes to clusters
+adata.rename_categories('louvain_r1', ['Birc5⁺/basal', 'Acinar', 'Gastric mucosa/Basal', 'Tcells', 'Dendritic', '5', 'Macrophages', 'Endothelial/Epithelial_Igfbp3⁺', 'Erythrocytes', 'Fibroblasts', '10', 'Restin', ' ', 'Dendritic/Macrophages'])
+adata.obs['louvain_r1'].value_counts()
+plt.figure(figsize=(100,8))
+sc.pl.umap(adata, color='louvain_r1', palette=sc.pl.palettes.vega_20, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/{1}_Clusters_CellTypes_UMAPs.png".format(qcDir, bname, k) , bbox_inches='tight', dpi=300); plt.close('all')
 
 
 # DO Not Delete ... this can be use to visualize a subset of clusters  
@@ -531,3 +555,13 @@ t.sort_values(ascending=False)[0:25]
 # 7) Feature selection
 # 8) Dimensionality reduction
 
+
+sc.tl.paga(adata, groups='louvain_r1')
+sc.pl.paga_compare(adata)
+sc.pl.paga(adata)
+
+fig1, ax1 = plt.subplots()
+sc.pl.umap(adata, size=40, ax=ax1, show=False)
+sc.pl.paga(adata, pos=adata.uns['paga']['pos'], show=False, node_size_scale=10, node_size_power=1, ax=ax1, text_kwds={'alpha':0})
+#plt.savefig('./figures/umap_paga_overlay_gut.pdf', dpi=300, format='pdf')
+plt.show()
