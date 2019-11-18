@@ -2,8 +2,8 @@
 cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 
 # Transpose the raw genesymbols file for genes
-datamash -H transpose < /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/scMatrix.txt > /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/T_scMatrix.txt
-datamash -H transpose < /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/input_klegerDuctalDiff.txt > /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/T_input_klegerDuctalDiff.txt
+datamash -H transpose < /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/scMatrix.txt > /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/T_scMatrix.txt
+datamash -H transpose < /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/input_klegerDuctalDiff.txt > /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/T_input_klegerDuctalDiff.txt
 
 ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
@@ -59,18 +59,26 @@ library(MAST)
 
 # System variables and directories
 projName        = "klegerDuctalDiff" # MANEC_merged_except1079_hMYC_forcecells
-output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/01_preprocessing"; create_dir("{0}".format(output_dir))
+output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/01_preprocessing"; create_dir("{0}".format(output_dir))
 # cc_genes_file   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/Macosko_cell_cycle_genes.txt"
 minGenesPerCell = 100
 minCellsPergene = 2
 bname           = projName
 qcDir           = "{0}/qc".format(output_dir); create_dir(qcDir)
 countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
-# annotation_file = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/targets.txt"
-input_matrix_file = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/input/scMatrix.txt'
+# annotation_file = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/targets.txt"
+input_matrix_file = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/01_scRNA_human_Pancreas/scMatrix.txt'
 
 # Add 
 # 1) Reading the data
+# head -3 output/klegerDuctalDiff/01_scRNA_human_Pancreas/scMatrix.txt | column -t | perl -lane 'print "@F[-6..-1]"'
+# ┌───────┬──────┬──────┬──────────┬──────────┬────────────┐
+# │ ZZEF1 │ ZZZ3 │ tAKR │ DonorAge │ Celltype │   PatID    │
+# ├───────┼──────┼──────┼──────────┼──────────┼────────────┤
+# │     0 │  651 │    0 │       21 │ alpha    │ GSM2171880 │
+# │     0 │  152 │    0 │       21 │ alpha    │ GSM2171881 │
+# └───────┴──────┴──────┴──────────┴──────────┴────────────┘
+
 orgdataDF   = pd.read_csv(input_matrix_file, sep="\t", index_col=['PatID'])
 orgdataDF['DonorAge_Celltype'] = orgdataDF['DonorAge'].astype(str)+ '_' + orgdataDF['Celltype']
 
