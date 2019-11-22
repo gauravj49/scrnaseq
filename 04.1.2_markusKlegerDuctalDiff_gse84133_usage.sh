@@ -54,14 +54,14 @@ library(MAST)
 #***************************************************
 
 # System variables and directories
-projName        = "klegerDuctalDiff_gse84133" # MANEC_merged_except1079_hMYC_forcecells
-output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/02_gse84133"; create_dir("{0}".format(output_dir))
-minGenesPerCell = 100
-minCellsPergene = 2
-bname           = projName
-qcDir           = "{0}/analysis".format(output_dir); create_dir(qcDir)
-countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
+projName          = "klegerDuctalDiff_gse84133" # MANEC_merged_except1079_hMYC_forcecells
 input_matrix_file = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/02_gse84133/scMatrix.txt'
+output_dir        = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/klegerDuctalDiff/02_gse84133"; create_dir("{0}".format(output_dir))
+minGenesPerCell   = 100
+minCellsPergene   = 2
+bname             = projName
+qcDir             = "{0}/analysis".format(output_dir); create_dir(qcDir)
+countsDir         = "{0}/counts".format(output_dir); create_dir(countsDir)
 
 # Add 
 # 1) Reading the data
@@ -252,10 +252,16 @@ sc.tl.umap(adata, random_state = 2105)
 # UMAPs
 sc.pl.pca_scatter(adata, color='n_counts', show=False)
 plt.savefig("{0}/02_norm_{1}_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
 sc.pl.umap(adata, color=['Batch'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_Batch_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
 sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_Cluster_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_Cluster_legendOnData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
 sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
@@ -294,9 +300,9 @@ colorsComb = np.vstack([colors3, colors2])
 mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
 
 # Save UMAP of marker genes
-sc.pl.umap(adata, color=['Cluster', 'KRT19', 'KRT7', 'CFTR', 'MUC1','BHLHA15', 'PTF1A', 'CPA1', 'AMY2A'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['Cluster', 'KRT19', 'KRT7', 'CFTR', 'MUC1','PTF1A', 'CPA1', 'AMY2A'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/{1}_marker_genes_ductal_acinar_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-for g in ['Cluster', 'KRT19', 'KRT7', 'CFTR', 'MUC1','BHLHA15', 'PTF1A', 'CPA1', 'AMY2A']:
+for g in ['Cluster', 'KRT19', 'KRT7', 'CFTR', 'MUC1', 'PTF1A', 'CPA1', 'AMY2A']:
   sc.pl.umap(adata, color= g, use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
   plt.savefig("{0}/{1}_marker_gene_{2}_UMAPs.pdf".format(qcDir, bname,g) , bbox_inches='tight'); plt.close('all')
 
@@ -328,3 +334,105 @@ pvalsDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals.txt".format(c
 pvalsadjDF = pd.DataFrame(adata.uns['rank_genes_Clusters']['pvals_adj'])
 pvalsadjDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False)
 
+#############################################################
+# Analyze ductal (1077 cells) subgroups (CFTR_high/MUC1_low and CFTR_low/MUC1_high) 
+# Get median for both genes
+cftrMedianExp = np.float(normCorrectedDF['CFTR'].describe()[['50%']].values)
+muc1MedianExp = np.float(normCorrectedDF['MUC1'].describe()[['50%']].values)
+
+# Get the index of ductal subcluster
+ductalDF = normCorrectedDF[normCorrectedDF['Cluster']=='ductal']                                                                  # 1077
+chmlDuctalIdx  = ductalDF[(normCorrectedDF['CFTR'] >= cftrMedianExp) & (normCorrectedDF['MUC1'] <  muc1MedianExp)].index.tolist() # 322
+clmhDuctalIdx  = ductalDF[(normCorrectedDF['CFTR']  < cftrMedianExp) & (normCorrectedDF['MUC1'] >= muc1MedianExp)].index.tolist() # 220
+otherDuctalIdx = ductalDF.loc[~ductalDF.index.isin(chmlDuctalIdx + clmhDuctalIdx)].index.tolist()                                 # 535
+
+# Get a new subcluster column
+adata.obs['Cluster_ductal_sub'] = adata.obs['Cluster']
+
+# Add new categories
+adata.obs['Cluster_ductal_sub'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+
+# Get a new subcluster column
+adata.obs['Cluster_ductal_sub'].loc[chmlDuctalIdx]  = adata.obs['Cluster_ductal_sub'].loc[chmlDuctalIdx].replace('ductal','ductal_cftrHigh_muc1Low') 
+adata.obs['Cluster_ductal_sub'].loc[clmhDuctalIdx]  = adata.obs['Cluster_ductal_sub'].loc[clmhDuctalIdx].replace('ductal','ductal_cftrLow_muc1High') 
+adata.obs['Cluster_ductal_sub'].loc[otherDuctalIdx] = adata.obs['Cluster_ductal_sub'].loc[otherDuctalIdx].replace('ductal','ductal_other') 
+
+# # adata.obs['Cluster_ductal_sub'].value_counts()
+# Out[94]: 
+# beta                       2525
+# alpha                      2326
+# acinar                      958
+# delta                       601
+# ductal_other                535
+# ductal_cftrHigh_muc1Low     322
+# activated_stellate          284
+# gamma                       255
+# endothelial                 252
+# ductal_cftrLow_muc1High     220
+# quiescent_stellate          173
+# macrophage                   55
+# mast                         25
+# epsilon                      18
+# schwann                      13
+# t_cell                        7
+# ductal                        0
+# Name: Cluster_ductal_sub, dtype: int64
+
+# Visualize new subclusers
+sc.pl.umap(adata, color=['Cluster_ductal_sub'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/02_norm_{1}_Cluster_ductal_sub_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+sc.pl.umap(adata, color=['Cluster_ductal_sub'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_Cluster_ductal_sub_legendOnData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# # Save the normalized, log transformed, batch and cell cycle corrected data
+# normCorrectedDF['Cluster_ductal_sub'] = adata.obs['Cluster_ductal_sub']
+# normCorrectedDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellID")
+# normCorrectedDF.T.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+
+# 7.2) Marker genes & cluster annotation
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby='Cluster_ductal_sub', key_added='rank_genes_Cluster_ductal_sub', n_genes=adata.shape[1])
+
+# Plot marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes_Cluster_ductal_sub', groups=['beta','alpha','ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other','acinar','delta','activated_stellate','gamma','endothelial','quiescent_stellate','macrophage','mast','epsilon','schwann','t_cell'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_Cluster_ductal_sub.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Save the coordinates of the umap
+rowIdx     = adata.obs.index.values.tolist()
+umapCordDF = pd.DataFrame(adata.obsm['X_umap'],index=rowIdx, columns=['UMAP1','UMAP2'])
+umapCordDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_UMAP_Coordinated.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellID")
+
+# Dataframe of ranked genes
+for g in ['beta','alpha','ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other','acinar','delta','activated_stellate','gamma','endothelial','quiescent_stellate','macrophage','mast','epsilon','schwann','t_cell']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_{2}.txt".format(countsDir, projName,g), sep='\t', header=True, index=False)
+
+namesDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['names'])
+namesDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_names.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+scoresDF   = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['scores'])
+scoresDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_scores.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+logfcDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['logfoldchanges'])
+logfcDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_logfoldchanges.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+pvalsDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['pvals'])
+pvalsDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+pvalsadjDF = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['pvals_adj'])
+pvalsadjDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+#########################################
+# Save session
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.dump_session(filename)
+
+# # and to load the session again:
+# import dill
+# filename = "{0}/{1}.pkl".format(output_dir, projName)
+# dill.load_session(filename)
