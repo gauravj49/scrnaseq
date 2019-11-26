@@ -6,6 +6,8 @@ cd ${projdir}
 
 samtools view -h ${projdir}/bulk1018_Myc.zeroEditDistance.bam | LC_ALL=C grep -F -f barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | sort -u > ${projdir}/bulk1018_Myc_human_cellIDs.txt
 
+samtools view -h ${projdir}/bulk1018_IRESreads.bam | LC_ALL=C grep -F -f barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | sort -u > ${projdir}/bulk1018_IRESreads_cellIDs.txt
+
 
 
 

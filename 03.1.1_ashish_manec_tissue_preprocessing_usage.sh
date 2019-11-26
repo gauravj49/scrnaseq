@@ -66,12 +66,12 @@ countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
 # 1 Reading the data
 # Merge 10x datasets for different mices
 # https://github.com/theislab/scanpy/issues/267
+#                     'input/manec/pilot2/bulk1079_mouse_filtered_feature_bc_matrix.h5'
 tissueFilenames = [
                     'input/manec/pilot2/bulk1001_mouse_filtered_feature_bc_matrix.h5', 
                     'input/manec/pilot2/bulk997_mouse_filtered_feature_bc_matrix.h5', 
                     'input/manec/pilot2/bulk1018_mouse_filtered_feature_bc_matrix.h5', 
-                    'input/manec/pilot2/stomach1001_mouse_filtered_feature_bc_matrix.h5',
-                    'input/manec/pilot2/bulk1079_mouse_filtered_feature_bc_matrix.h5'
+                    'input/manec/pilot2/stomach1001_mouse_filtered_feature_bc_matrix.h5'
                   ]
 adatas          = [sc.read_10x_h5(f) for f in tissueFilenames]
 adata           = adatas[0].concatenate(adatas[1:])
@@ -174,9 +174,9 @@ print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
 # Total number of genes: 31053
 # Number of genes after cell filter: 16263
 
-# 2.7) Save the filtered raw data as tab separated matrix 
-adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+# # 2.7) Save the filtered raw data as tab separated matrix 
+# adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
+# adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
 
 # 2.8) Calculations for the visualizations
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
@@ -295,9 +295,9 @@ plt.savefig("{0}/{1}_S_G2M_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='t
 sc.pl.umap(adata, color='phase', use_raw=False, show=False)
 plt.savefig("{0}/{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
-# Save the normalized, log transformed, batch and cell cycle corrected data
-adata.to_df().to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+# # Save the normalized, log transformed, batch and cell cycle corrected data
+# adata.to_df().to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
+# adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -341,17 +341,17 @@ sc.tl.umap(adata, random_state = 2105)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
-sc.pl.umap(adata, color=['louvain_r1', 'louvain_r0.5'], palette=sc.pl.palettes.default_64, show=False)
-plt.savefig("{0}/{1}_clustering_louvain_r1_r05_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/{1}_clustering_louvain_r05_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # UMAPs
-sc.pl.pca_scatter(adata, color='n_counts', show=False)
+sc.pl.pca_scatter(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color=['tissueID'], show=False)
+sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color='n_counts', show=False)
+sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color=['log_counts', 'mt_frac'], show=False)
+sc.pl.umap(adata, color=['log_counts', 'mt_frac'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # sc.pl.pca_scatter(adata, color='n_counts')
@@ -565,3 +565,47 @@ sc.pl.umap(adata, size=40, ax=ax1, show=False)
 sc.pl.paga(adata, pos=adata.uns['paga']['pos'], show=False, node_size_scale=10, node_size_power=1, ax=ax1, text_kwds={'alpha':0})
 #plt.savefig('./figures/umap_paga_overlay_gut.pdf', dpi=300, format='pdf')
 plt.show()
+
+#########################################
+# Save session
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.dump_session(filename)
+
+# # and to load the session again:
+# import dill
+# filename = "{0}/{1}.pkl".format(output_dir, projName)
+# dill.load_session(filename)
+
+
+# Color the cells that have human myc and ires
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/bulk1018_mouse_sangerhMYC_IRES/outs/bulk1018_IRES_Myc_human_cellIDs.txt', sep="\t", header=None).values.tolist()
+cl  = sum(cellBarCodes, [])
+ucl = get_unique_list(cl)
+# In [34]: len(ucl)
+# Out[34]: 292
+
+mylist = adata.obs.index.values
+# sub    = 'TTTGGTTTCGTAGGGA-1'
+# next((s for s in mylist if sub in s), None)
+# final = list()
+# for sub in ucl: 
+#     for text in mylist: 
+#         if sub in text: 
+#             final.append(sub)
+
+# # In [36]: len(final)
+# # Out[36]: 186
+
+humaniresmyc = list()
+for e in mylist: 
+  flag = 0
+  for s in ucl: 
+      if s in e: 
+          flag = 1 
+          break
+  humaniresmyc.append(flag)
+
+adata.obs['humanMycIresCellIds'] = humaniresmyc
+
+sc.pl.umap(adata, color='humanMycIresCellIds', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
