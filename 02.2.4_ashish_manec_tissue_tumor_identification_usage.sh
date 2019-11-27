@@ -55,10 +55,11 @@ library(MAST)
 
 # System variables and directories
 projName        = "manec_tissues_merged_except1079" # MANEC_merged_except1079_hMYC_forcecells
-output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/tissue/01_preprocessing/{0}".format(projName); create_dir("{0}".format(output_dir))
+output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/tissue/02_mitTumorIdentification/{0}".format(projName); create_dir("{0}".format(output_dir))
 cc_genes_file   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/Macosko_cell_cycle_genes.txt"
-minGenesPerCell = 100
-minCellsPergene = 2
+minGenesPerCell = 500
+minCountPerCell = 800
+minCellsPergene = 100
 bname           = projName
 qcDir           = "{0}/qc".format(output_dir); create_dir(qcDir)
 countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
@@ -147,7 +148,7 @@ plt.savefig("{0}/{1}_genes_histogramplot_lessthan_1000.png".format(qcDir, bname)
 origadata = adata.copy()
 print('Total number of cells: {:d}'.format(adata.n_obs))
 
-sc.pp.filter_cells(adata, min_counts = 300)
+sc.pp.filter_cells(adata, min_counts = minCountPerCell)
 print('Number of cells after min count filter: {:d}'.format(adata.n_obs))
 
 # sc.pp.filter_cells(adata, max_counts = 40000)
@@ -156,23 +157,23 @@ print('Number of cells after min count filter: {:d}'.format(adata.n_obs))
 adata = adata[adata.obs['mt_frac'] < 0.25]
 print('Number of cells after MT filter: {:d}'.format(adata.n_obs))
 
-sc.pp.filter_cells(adata, min_genes = 300)
+sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
 print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
 
 # Total number of cells: 9038
-# Number of cells after min count filter: 9038
-# Number of cells after MT filter: 7992
+# Number of cells after min count filter: 4554
+# Number of cells after MT filter: 4112
 # Trying to set attribute `.obs` of view, making a copy.
-# Number of cells after gene filter: 7261
+# Number of cells after gene filter: 3392
 
 # 2.6) Filter genes according to identified QC thresholds:
 # Min 5 cells - filters out 0 count genes
 print('Total number of genes: {:d}'.format(adata.n_vars))
-sc.pp.filter_genes(adata, min_cells=5)
+sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
 
 # Total number of genes: 31053
-# Number of genes after cell filter: 16263
+# Number of genes after cell filter: 9203
 
 # # 2.7) Save the filtered raw data as tab separated matrix 
 # adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
@@ -186,37 +187,13 @@ sc.pp.neighbors(adata, random_state = 2105)
 sc.tl.umap(adata, random_state = 2105)
 
 # 2.9) Plot visualizations
-sc.pl.pca_scatter(adata, color='n_counts', show=False)
+sc.pl.pca_scatter(adata, color='n_counts',show=False)
 plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color=['tissueID'], show=False)
+sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 ########################
 # 3) Expression recovery (denoising), Normalization and log transformation
-# # Denoise the data on raw counts
-# sce.pp.dca(adata, batchnorm=False, normalize_per_cell=False)
-# NOTE: The denoising is causing the batches effects to get stronger and even with combat or BBKNm they are still are there with high impact.
-#       For this Manec dataset, I`ll turn off the DCA
-# # Save the denoised data
-# adata.to_df().to_csv("{0}/02_denoised_DCA_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-# adata.to_df().T.to_csv("{0}/02_denoised_DCA_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
-
-
-# # Get the raw matrix to pass it along to Scnorm
-# rawMat       = adata.to_df().T
-# input_groups = adata.obs['tissueID'].tolist()
-# with open('conditions.txt', 'w') as f: f.write("\n".join(str(item) for item in input_groups))
-# # Run Scnorm in R
-# %%R -i rawMat -i input_groups -o normRawData
-# groups <- (as.vector(unlist(input_groups)))
-# normRawMat  <- SCnorm(Data=rawMat, Conditions=groups, K=2)
-# normRawData <- results(normRawMat, type = "NormalizedData")
-# # Keep the count data in a counts layer
-# adata.layers["counts"] = adata.X.copy()
-# # Normalize and log adata 
-# adata.X = normRawData
-# sc.pp.log1p(adata)
-
 # Normalization using SCRAN
 # This method requires a coarse clustering input to improve size factor esimation performance. 
 # Thus, we use a simple preprocessing approach and cluster the data at a low resolution to get an 
@@ -290,9 +267,9 @@ s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
 g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
 
 sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
-sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False, show=False)
+sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/{1}_S_G2M_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-sc.pl.umap(adata, color='phase', use_raw=False, show=False)
+sc.pl.umap(adata, color='phase', use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # # Save the normalized, log transformed, batch and cell cycle corrected data
@@ -301,33 +278,26 @@ plt.savefig("{0}/{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
-sc.tl.louvain(adata, resolution=1.0, key_added='louvain_r1'  , random_state=2105)
-sc.tl.louvain(adata, resolution=0.9, key_added='louvain_r0.9', random_state=2105)
-sc.tl.louvain(adata, resolution=0.8, key_added='louvain_r0.8', random_state=2105)
-sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
-sc.tl.louvain(adata, resolution=0.6, key_added='louvain_r0.6', random_state=2105)
-sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=2105)
-sc.tl.louvain(adata, resolution=0.4, key_added='louvain_r0.4', random_state=2105)
-sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
-sc.tl.louvain(adata, resolution=0.2, key_added='louvain_r0.2', random_state=2105)
-sc.tl.louvain(adata, resolution=0.1, key_added='louvain_r0.1', random_state=2105)
 sc.tl.louvain(adata, key_added='louvain', random_state=2105)
-
-for i in np.linspace(0.1,0.9,9):
-  print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
-
+sc.tl.louvain(adata, resolution=2.0, key_added='louvain_r2', random_state=2105)
 
 # Number of cells in each cluster
-adata.obs['louvain_r0.5'].value_counts()
-# 0    2232
-# 1    1197
-# 2    1090
-# 3     864
-# 4     831
-# 5     504
-# 6     226
-# 7     207
-# 8     110
+# In [30]: adata.obs['louvain'].value_counts()                                                                                                                                     
+# Out[30]: 
+# 0     448
+# 1     347
+# 2     323
+# 3     279
+# 4     267
+# 5     264
+# 6     243
+# 7     238
+# 8     217
+# 9     203
+# 10    201
+# 11    163
+# 12    135
+# 13     64
 # Name: louvain_r0.5, dtype: int64
 
 # 4.3) Visualizations
@@ -336,13 +306,11 @@ adata.obs['louvain_r0.5'].value_counts()
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
 sc.tl.umap(adata, random_state = 2105)
-# sc.tl.diffmap(adata)
-# sc.tl.draw_graph(adata)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
-sc.pl.umap(adata, color=['louvain', 'louvain_r0.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/{1}_clustering_louvain_r05_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.9', 'louvain_r1','louvain_r1.1','louvain_r1.5','louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/{1}_clustering_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # UMAPs
 sc.pl.pca_scatter(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
@@ -391,15 +359,6 @@ for l in list(itertools.combinations(['0','2','5','10'], 2)):
 
 
 # Known marker genes:
-# marker_genes = dict()
-# marker_genes['Stem'] = ['Lgr5', 'Ascl2', 'Slc12a2', 'Axin2', 'Olfm4', 'Gkn3']
-# marker_genes['Enterocyte (Proximal)'] = ['Gsta1','Rbp2','Adh6a','Apoa4','Reg3a','Creb3l3','Cyp3a13','Cyp2d26','Ms4a10','Ace','Aldh1a1','Rdh7','H2-Q2', 'Hsd17b6','Gstm3','Gda','Apoc3','Gpd1','Fabp1','Slc5a1','Mme','Cox7a1','Gsta4','Lct','Khk','Mttp','Xdh','Sult1b1', 'Treh','Lpgat1','Dhrs1','Cyp2c66','Ephx2','Cyp2c65','Cyp3a25','Slc2a2','Ugdh','Gstm6','Retsat','Ppap2a','Acsl5', 'Cyb5r3','Cyb5b','Ckmt1','Aldob','Ckb','Scp2','Prap1']
-# marker_genes['Enterocyte (Distal)'] = ['Tmigd1','Fabp6','Slc51b','Slc51a','Mep1a','Fam151a','Naaladl1','Slc34a2','Plb1','Nudt4','Dpep1','Pmp22','Xpnpep2','Muc3','Neu1','Clec2h','Phgr1','2200002D01Rik','Prss30','Cubn','Plec','Fgf15','Crip1','Krt20','Dhcr24','Myo15b','Amn','Enpep','Anpep','Slc7a9','Ocm','Anxa2','Aoc1','Ceacam20','Arf6','Abcb1a','Xpnpep1','Vnn1','Cndp2','Nostrin','Slc13a1','Aspa','Maf','Myh14']
-# marker_genes['Goblet'] = ['Agr2', 'Fcgbp', 'Tff3', 'Clca1', 'Zg16', 'Tpsg1', 'Muc2', 'Galnt12', 'Atoh1', 'Rep15', 'S100a6', 'Pdia5', 'Klk1', 'Pla2g10', 'Spdef', 'Lrrc26', 'Ccl9', 'Bace2', 'Bcas1', 'Slc12a8', 'Smim14', 'Tspan13', 'Txndc5', 'Creb3l4', 'C1galt1c1', 'Creb3l1', 'Qsox1', 'Guca2a', 'Scin', 'Ern2', 'AW112010', 'Fkbp11', 'Capn9', 'Stard3nl', 'Slc50a1', 'Sdf2l1', 'Hgfa', 'Galnt7', 'Hpd', 'Ttc39a', 'Tmed3', 'Pdia6', 'Uap1', 'Gcnt3', 'Tnfaip8', 'Dnajc10', 'Ergic1', 'Tsta3', 'Kdelr3', 'Foxa3', 'Tpd52', 'Tmed9', 'Spink4', 'Nans', 'Cmtm7', 'Creld2', 'Tm9sf3', 'Wars', 'Smim6', 'Manf', 'Oit1', 'Tram1', 'Kdelr2', 'Xbp1', 'Serp1', 'Vimp', 'Guk1', 'Sh3bgrl3', 'Cmpk1', 'Tmsb10', 'Dap', 'Ostc', 'Ssr4', 'Sec61b', 'Pdia3', 'Gale', 'Klf4', 'Krtcap2', 'Arf4', 'Sep15', 'Ssr2', 'Ramp1', 'Calr', 'Ddost']
-# marker_genes['Paneth'] = ['Gm15284', 'AY761184', 'Defa17', 'Gm14851', 'Defa22', 'Defa-rs1', 'Defa3', 'Defa24', 'Defa26', 'Defa21', 'Lyz1', 'Gm15292', 'Mptx2', 'Ang4']
-# marker_genes['Enteroendocrine'] = ['Chgb', 'Gfra3', 'Cck', 'Vwa5b2', 'Neurod1', 'Fev', 'Aplp1', 'Scgn', 'Neurog3', 'Resp18', 'Trp53i11', 'Bex2', 'Rph3al', 'Scg5', 'Pcsk1', 'Isl1', 'Maged1', 'Fabp5', 'Celf3', 'Pcsk1n', 'Fam183b', 'Prnp', 'Tac1', 'Gpx3', 'Cplx2', 'Nkx2-2', 'Olfm1', 'Vim', 'Rimbp2', 'Anxa6', 'Scg3', 'Ngfrap1', 'Insm1', 'Gng4', 'Pax6', 'Cnot6l', 'Cacna2d1', 'Tox3', 'Slc39a2', 'Riiad1']
-# marker_genes['Tuft'] = ['Alox5ap', 'Lrmp', 'Hck', 'Avil', 'Rgs13', 'Ltc4s', 'Trpm5', 'Dclk1', 'Spib', 'Fyb', 'Ptpn6', 'Matk', 'Snrnp25', 'Sh2d7', 'Ly6g6f', 'Kctd12', '1810046K07Rik', 'Hpgds', 'Tuba1a', 'Pik3r5', 'Vav1', 'Tspan6', 'Skap2', 'Pygl', 'Ccdc109b', 'Ccdc28b', 'Plcg2', 'Ly6g6d', 'Alox5', 'Pou2f3', 'Gng13', 'Bmx', 'Ptpn18', 'Nebl', 'Limd2', 'Pea15a', 'Tmem176a', 'Smpx', 'Itpr2', 'Il13ra1', 'Siglecf', 'Ffar3', 'Rac2', 'Hmx2', 'Bpgm', 'Inpp5j', 'Ptgs1', 'Aldh2', 'Pik3cg', 'Cd24a', 'Ethe1', 'Inpp5d', 'Krt23', 'Gprc5c', 'Reep5', 'Csk', 'Bcl2l14', 'Tmem141', 'Coprs', 'Tmem176b', '1110007C09Rik', 'Ildr1', 'Galk1', 'Zfp428', 'Rgs2', 'Inpp5b', 'Gnai2', 'Pla2g4a', 'Acot7', 'Rbm38', 'Gga2', 'Myo1b', 'Adh1', 'Bub3', 'Sec14l1', 'Asah1', 'Ppp3ca', 'Agt', 'Gimap1', 'Krt18', 'Pim3', '2210016L21Rik', 'Tmem9', 'Lima1', 'Fam221a', 'Nt5c3', 'Atp2a3', 'Mlip', 'Vdac3', 'Ccdc23', 'Tmem45b', 'Cd47', 'Lect2', 'Pla2g16', 'Mocs2', 'Arpc5', 'Ndufaf3']
-
 # Read the marker genes into a pandas dataframe
 marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V1.txt'
 markersDF    = pd.read_csv(marker_file, sep="\t")
@@ -579,7 +538,7 @@ dill.dump_session(filename)
 
 
 # Color the cells that have human myc and ires
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/bulk1018_mouse_sangerhMYC_IRES/outs/bulk1018_IRES_Myc_human_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/MANEC_allsamples_MYC_IRES_human/humanMyc_IRES_cellIDs.txt', sep="\t", header=None).values.tolist()
 cl  = sum(cellBarCodes, [])
 ucl = get_unique_list(cl)
 # In [34]: len(ucl)
@@ -608,4 +567,5 @@ for e in mylist:
 
 adata.obs['humanMycIresCellIds'] = humaniresmyc
 
-sc.pl.umap(adata, color='humanMycIresCellIds', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+sc.pl.umap(adata, color='humanMycIresCellIds', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/02_norm_{1}_Tumor_CellIDs_UMAP.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
