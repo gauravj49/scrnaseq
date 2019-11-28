@@ -34,6 +34,26 @@ java -jar /home/rad/packages/picard_2.18.0/picard.jar \
   SEQUENCE_DICTIONARY=GRCm38_primary_assembly_hgMycIresCd2.dict \
   OUTPUT=GRCm38_primary_assembly_hgMycIresCd2.fa.refFlat
 
+# Run cell ranger
+
+# Copy H5 files to input folder
+for t in bulk997 bulk1001 bulk1018 stomach1001;
+do 
+ rsync -arvP /media/rad/HDD2/temp_manec/${t}_mouse_MmHgMycIresCd2/outs/filtered_feature_bc_matrix.h5 /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/manec/tissue/${t}_mouse_filtered_feature_bc_matrix.h5
+done
+
+# Get the cell ID with hgMycIresCd2
+for t in bulk997 bulk1001 bulk1018 stomach1001;
+do 
+  # Define sampledir
+  sampledir="/media/rad/HDD2/temp_manec/${t}_mouse_MmHgMycIresCd2/outs"
+  # cp ${sampledir}/filtered_feature_bc_matrix/barcodes.tsv.gz ${sampledir}
+  # gunzip ${sampledir}/barcodes.tsv.gz
+  samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:1-2550'| bamtools filter -tag nM:i:0 -in - | samtools view -h | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_cellIDs.txt
+done
+
+cat ${sampledir}/*_hgMycIresCd2_cellIDs.txt 
+
 
 ################## DOCS #####################
 # # cut -f1-2 GRCm38_primary_assembly_hgMycIresCd2.fa.fai
