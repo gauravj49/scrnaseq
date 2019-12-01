@@ -315,7 +315,7 @@ for i in np.linspace(0.1,0.9,9):
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
-sc.tl.umap(adata, random_state = 2105)
+sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
@@ -557,7 +557,11 @@ dill.dump_session(filename)
 
 
 # Color the cells that have human myc and ires
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
+# cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_humanMyc_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_ires_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_gap_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
 cl  = sum(cellBarCodes, [])
 ucl = get_unique_list(cl)
 # In [34]: len(ucl)
