@@ -136,8 +136,8 @@ print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
 # Number of genes after cell filter: 15117
 
 # # 2.7) Save the filtered raw data as tab separated matrix 
-# adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-# adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+# adata.to_df().to_csv("{0}/01_raw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId", float_format='%.2g')
+# adata.to_df().T.to_csv("{0}/01_raw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
 
 # 2.8) Calculations for the visualizations
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
@@ -208,8 +208,8 @@ plt.savefig("{0}/{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inch
 normCorrectedDF            = adata.to_df()
 normCorrectedDF['Batch']   = orgdataDF['Batch'].astype(str)
 normCorrectedDF['Cluster'] = orgdataDF['Cluster']
-normCorrectedDF.to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId")
-normCorrectedDF.T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+normCorrectedDF.to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
+normCorrectedDF.T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
 
 # 7) Clustering
 # # 7.1) Perform clustering - using highly variable genes
@@ -317,22 +317,22 @@ for g in ['beta','alpha','ductal','acinar','delta','activated_stellate','gamma',
   for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
     ngDF[n] = pd.DataFrame(adata.uns['rank_genes_Clusters'][n])[g]
   # Save dataframes
-  ngDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_{2}.txt".format(countsDir, projName,g), sep='\t', header=True, index=False)
+  ngDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_{2}.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
 namesDF    = pd.DataFrame(adata.uns['rank_genes_Clusters']['names'])
-namesDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_names.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+namesDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_names.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 scoresDF   = pd.DataFrame(adata.uns['rank_genes_Clusters']['scores'])
-scoresDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_scores.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+scoresDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_scores.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 logfcDF    = pd.DataFrame(adata.uns['rank_genes_Clusters']['logfoldchanges'])
-logfcDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_logfoldchanges.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+logfcDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_logfoldchanges.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 pvalsDF    = pd.DataFrame(adata.uns['rank_genes_Clusters']['pvals'])
-pvalsDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+pvalsDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 pvalsadjDF = pd.DataFrame(adata.uns['rank_genes_Clusters']['pvals_adj'])
-pvalsadjDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+pvalsadjDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_Clusters_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 #############################################################
 # Analyze ductal (1077 cells) subgroups (CFTR_high/MUC1_low and CFTR_low/MUC1_high) 
@@ -409,22 +409,64 @@ for g in ['beta','alpha','ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'd
   for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
     ngDF[n] = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub'][n])[g]
   # Save dataframes
-  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_{2}.txt".format(countsDir, projName,g), sep='\t', header=True, index=False)
+  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_{2}.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
 namesDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['names'])
-namesDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_names.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+namesDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_names.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 scoresDF   = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['scores'])
-scoresDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_scores.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+scoresDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_scores.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 logfcDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['logfoldchanges'])
-logfcDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_logfoldchanges.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+logfcDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_logfoldchanges.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 pvalsDF    = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['pvals'])
-pvalsDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+pvalsDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
 pvalsadjDF = pd.DataFrame(adata.uns['rank_genes_Cluster_ductal_sub']['pvals_adj'])
-pvalsadjDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+pvalsadjDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_Clusters_ductal_sub_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 8.1) Save normalized files with 2 decimal precision
+input_file = '03_normalizedRaw_DuctalSubCluster_T_klegerDuctalDiff_gse84133_filtered.txt'
+ndf = pd.read_csv(input_file, float_precision=2)
+output_file = '03_normalizedRaw_DuctalSubCluster_T_klegerDuctalDiff_gse84133_filtered_doublePrecision.txt'
+ndf.to_csv(output_file,sep='\t', header=True, index=False, float_format='%.2g')
+
+# 9.1) Marker genes & cluster annotation
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby='Cluster_ductal_sub', groups=['ductal_cftrHigh_muc1Low','ductal_other'], key_added='rank_genes_ref_ductal_cftrLow_muc1High', reference='ductal_cftrLow_muc1High', n_genes=adata.shape[1])
+sc.pl.rank_genes_groups(adata, key='rank_genes_ref_ductal_cftrLow_muc1High', groups=['ductal_cftrHigh_muc1Low','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrLow_muc1High.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adata, groupby='Cluster_ductal_sub', groups=['ductal_cftrLow_muc1High','ductal_other'], key_added='rank_genes_ref_ductal_cftrHigh_muc1Low', reference='ductal_cftrHigh_muc1Low', n_genes=adata.shape[1])
+sc.pl.rank_genes_groups(adata, key='rank_genes_ref_ductal_cftrHigh_muc1Low', groups=['ductal_cftrLow_muc1High','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrHigh_muc1Low.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adata, groupby='Cluster_ductal_sub', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_other', reference='ductal_other', n_genes=adata.shape[1])
+sc.pl.rank_genes_groups(adata, key='rank_genes_ref_ductal_other', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_marker_genes_ranking_rank_genes_ref_ductal_other.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Dataframe of ranked genes
+for g in ['ductal_cftrHigh_muc1Low','ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_ref_ductal_cftrLow_muc1High'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_{2}_over_ductal_cftrLow_muc1High.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrLow_muc1High', 'ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_ref_ductal_cftrHigh_muc1Low'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_{2}_over_ductal_cftrHigh_muc1Low.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_ref_ductal_other'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_{2}_over_ductal_other.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
 #########################################
 # Save session
@@ -432,7 +474,9 @@ import dill
 filename = "{0}/{1}.pkl".format(output_dir, projName)
 dill.dump_session(filename)
 
-# # and to load the session again:
-# import dill
-# filename = "{0}/{1}.pkl".format(output_dir, projName)
-# dill.load_session(filename)
+# and to load the session again:
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.load_session(filename)
+
+#########################################
