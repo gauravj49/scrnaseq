@@ -550,17 +550,16 @@ import dill
 filename = "{0}/{1}.pkl".format(output_dir, projName)
 dill.dump_session(filename)
 
-# # and to load the session again:
-# import dill
-# filename = "{0}/{1}.pkl".format(output_dir, projName)
-# dill.load_session(filename)
+# and to load the session again:
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.load_session(filename)
+#########################################
 
-
+# --------------------------------------------------------
+# Plot UMAP for all the tumor cells 
 # Color the cells that have human myc and ires
-# cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_humanMyc_cellIDs.txt', sep="\t", header=None).values.tolist()
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_ires_cellIDs.txt', sep="\t", header=None).values.tolist()
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_gap_cellIDs.txt', sep="\t", header=None).values.tolist()
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
 cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
 cl  = sum(cellBarCodes, [])
 ucl = get_unique_list(cl)
@@ -578,6 +577,60 @@ for e in mylist:
   humaniresmyc.append(flag)
 
 adata.obs['hgMycIresCd2'] = humaniresmyc
-
 sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+
+# --------------------------------------------------------
+# Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
+# Unique cell barcode list of list
+ucblofl = list()
+ucbd    = defaultdict(list)
+for t in ['humanMyc', 'gap', 'ires', 'humanCd2']:
+  # Cell barcode data frame
+  cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_{0}_cellIDs.txt'.format(t), sep="\t", header=None).values.tolist()
+
+  # Unique cell barcode list
+  ucbl = get_unique_list(sum(cbDF, []))
+  ucbd[t] = ucbl
+  ucblofl.append(ucbl)
+
+import upsetplot
+from upsetplot import from_memberships, from_contents
+upsetContent = from_contents(ucbd)
+memberships  = from_memberships(ucblofl)
+
+fig = plt.figure(figsize=(15,5), dpi=175)
+upsetplot.plot(upsetContent, sum_over=False,show_counts='%d', fig=fig)
+plt.savefig("{0}/02_norm_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Plot only selected groups
+upcDF        = upsetContent.query('humanMyc == True and gap == False and ires == False and humanCd2 == False')                                               
+cellBarCodes = upcDF.values.tolist()
+
+upcDF        = upsetContent.query('humanMyc == False and gap == True and ires == False and humanCd2 == False')                                               
+cellBarCodes = upcDF.values.tolist()
+
+upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == True and humanCd2 == False')                                               
+cellBarCodes = upcDF.values.tolist()
+
+upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == False and humanCd2 == True')                                               
+cellBarCodes = upcDF.values.tolist()
+
+cl  = sum(cellBarCodes, [])
+ucl = get_unique_list(cl)
+# In [34]: len(ucl)
+# Out[34]: 1743
+
+mylist = adata.obs.index.values
+humaniresmyc = list()
+for e in mylist: 
+  flag = 0
+  for s in ucl: 
+      if s in e: 
+          flag = 1 
+          break
+  humaniresmyc.append(flag)
+
+adata.obs['hgMycIresCd2'] = humaniresmyc
+sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
