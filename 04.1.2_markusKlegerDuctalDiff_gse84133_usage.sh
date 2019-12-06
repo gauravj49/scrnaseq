@@ -468,6 +468,23 @@ for g in ['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High']:
   # Save dataframes
   ngDF.to_csv("{0}/03_normalizedRaw_DuctalSubCluster_{1}_rank_genes_{2}_over_ductal_other.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
+# Plot additional marker genes on UMAP
+# Mucin enriched ductal subpopulation
+sc.pl.umap(adata, color=['Cluster_ductal_sub', 'MUC1', 'MUC13', 'TFF1', 'TFF2'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/03_{1}_marker_genes_mucin_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# CFTR population
+sc.pl.umap(adata, color=['Cluster_ductal_sub', 'KRT19', 'KRT7', 'CFTR', 'AQP3', 'AQP5', 'CA2', 'CA4', 'SCTR', 'SLC26A6'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/03_{1}_marker_genes_cftr_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# CFTR population
+sc.pl.umap(adata, color=['Cluster_ductal_sub', 'ANXA2','ANXA3','ANXA4','CDX2','ID2','SOX6','SCTR','CD44','ID3','CLDN4','KLF6','LGALS3','NCOA7','ANXA1','ANXA2','CLDN1','KRT17','LAMC2','S100A16','ABCC3','AMBP','ANXA4','CLDN18','ONECUT2','PDX1','NKX6.1'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/03_{1}_additional_interesting_genes_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+for g in ['Cluster_ductal_sub', 'MUC1', 'MUC13', 'TFF1', 'TFF2', 'KRT19', 'KRT7', 'CFTR', 'AQP3', 'AQP5', 'CA2', 'CA4', 'SCTR', 'SLC26A6', 'ANXA2','ANXA3','ANXA4','CDX2','ID2','SOX6','SCTR','CD44','ID3','CLDN4','KLF6','LGALS3','NCOA7','ANXA1','ANXA2','CLDN1','KRT17','LAMC2','S100A16','ABCC3','AMBP','ANXA4','CLDN18','ONECUT2','PDX1','NKX6.1']:
+  sc.pl.umap(adata, color= g, use_raw=False, color_map=mymap, size=50, edgecolor='grey', linewidth=0.01, alpha=0.9, show=False)
+  plt.savefig("{0}/03_{1}_marker_gene_{2}_UMAPs.pdf".format(qcDir, bname,g) , bbox_inches='tight'); plt.close('all')
+
 #########################################
 # Save session
 import dill
