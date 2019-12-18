@@ -63,6 +63,12 @@ bname             = projName
 qcDir             = "{0}/analysis".format(output_dir); create_dir(qcDir)
 countsDir         = "{0}/counts".format(output_dir); create_dir(countsDir)
 
+# Define a nice colour map for gene expression
+colors2    = plt.cm.Reds(np.linspace(0, 1, 128))
+colors3    = plt.cm.Greys_r(np.linspace(0.7,0.8,20))
+colorsComb = np.vstack([colors3, colors2])
+mymap      = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
+
 # Add 
 # 1) Reading the data
 # head -3 output/klegerDuctalDiff/02_gse84133/scMatrix.txt | column -t | perl -lane 'print "@F[-6..-1]"'
@@ -76,7 +82,10 @@ orgdataDF   = pd.read_csv(input_matrix_file, sep="\t", index_col=['CellID'])
 
 orgcountsDF = orgdataDF.copy()
 orgcountsDF.drop(['Cluster', 'Batch'], axis=1, inplace=True)
-adata = sc.AnnData(orgcountsDF)
+origadata   = sc.AnnData(orgcountsDF)
+
+# Work on a copy of original data
+adata = origadata.copy()
 
 # Make variable names unique
 adata.var_names_make_unique()
@@ -99,22 +108,21 @@ adata.obs['log_counts'] = np.log(adata.obs['n_counts'])
 # 2.2) Plot QC metrics
 # Sample quality plots
 t1 = sc.pl.violin(adata, 'n_counts', groupby='Batch', size=2, log=True, cut=0, show=False)
-plt.savefig("{0}/{1}_Batch_nCounts_plot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_Batch_nCounts_plot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # 2.3) Thresholding decision based on counts
 p3 = sns.distplot(adata.obs['n_counts'], kde=False); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_ncounts_histogramplot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 p4 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']<2000], kde=False, bins=1000); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot_lessthan_2000.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_ncounts_histogramplot_lessthan_2000.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 p5 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']>5000], kde=False, bins=1000); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot_greaterthan_5000.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_ncounts_histogramplot_greaterthan_5000.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # 2.4) Thresholding decision based on genes
 p6 = sns.distplot(adata.obs['n_genes'], kde=False, bins=1000); # plt.show()
-plt.savefig("{0}/{1}_genes_histogramplot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_genes_histogramplot.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # 2.5) Filter cells according to identified QC thresholds:
-origadata = adata.copy()
 print('Total number of cells: {:d}'.format(adata.n_obs))
 
 sc.pp.filter_cells(adata, min_counts = 300)
@@ -178,11 +186,11 @@ size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.1)
 # Visualize the estimated size factors
 adata.obs['size_factors'] = size_factors
 sc.pl.scatter(adata, 'size_factors', 'n_counts', show=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_vs_ncounts.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_scrna_sizefactors_vs_ncounts.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 sc.pl.scatter(adata, 'size_factors', 'n_genes' , show=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_vs_ngenes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_scrna_sizefactors_vs_ngenes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 sns.distplot(size_factors, bins=50, kde=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_histogram.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_scrna_sizefactors_histogram.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Keep the count data in a counts layer
 adata.layers["counts"] = adata.X.copy()
@@ -202,68 +210,136 @@ sc.pp.combat(adata, key='Batch')
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
 print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
 sc.pl.highly_variable_genes(adata, show=False)
-plt.savefig("{0}/{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+plt.savefig("{0}/01_{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Save the normalized, log transformed, batch and cell cycle corrected data
 normCorrectedDF            = adata.to_df()
 normCorrectedDF['Batch']   = orgdataDF['Batch'].astype(str)
 normCorrectedDF['Cluster'] = orgdataDF['Cluster']
-normCorrectedDF.to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
-normCorrectedDF.T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
-
-# 7) Clustering
-# # 7.1) Perform clustering - using highly variable genes
-# sc.tl.louvain(adata, resolution=1.0, key_added='louvain_r1'  , random_state=2105)
-# sc.tl.louvain(adata, resolution=0.9, key_added='louvain_r0.9', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.8, key_added='louvain_r0.8', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.6, key_added='louvain_r0.6', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.5, key_added='louvain_r0.5', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.4, key_added='louvain_r0.4', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.2, key_added='louvain_r0.2', random_state=2105)
-# sc.tl.louvain(adata, resolution=0.1, key_added='louvain_r0.1', random_state=2105)
-# sc.tl.louvain(adata, key_added='louvain', random_state=2105)
-
-# for i in np.linspace(0.1,0.9,9):
-#   print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
-
-
-# # Number of cells in each cluster
-# adata.obs['louvain'].value_counts()
-# # 0    2232
-# # 1    1197
-# # 2    1090
-# # 3     864
-# # 4     831
-# # 5     504
-# # 6     226
-# # 7     207
-# # 8     110
-# # Name: louvain_r0.5, dtype: int64
+# normCorrectedDF.to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
+# normCorrectedDF.T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
 
 # 4.3) Visualizations
-
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
-sc.tl.umap(adata, random_state = 2105)
+sc.tl.umap(adata, random_state = 2105, n_components=3)
 
-# UMAPs
+# UMAPs for QC
 sc.pl.pca_scatter(adata, color='n_counts', show=False)
 plt.savefig("{0}/02_norm_{1}_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 sc.pl.umap(adata, color=['Batch'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_Batch_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
+sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/02_norm_{1}_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# UMAPs with cluster information
+# 2D plots
 sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_Cluster_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-
 sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
 plt.savefig("{0}/02_norm_{1}_Cluster_legendOnData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
-sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+# 3D plots
+sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/02_norm_{1}_Cluster_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# 5) LOUVAIN CLUSTERING 
+# 5.1) Perform clustering - using highly variable genes
+sc.tl.louvain(adata, resolution=1.0, key_added='louvain_r1'  , random_state=2105)
+sc.pl.umap(adata, color=['louvain_r1'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_louvain_r1_legendOnData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adata, color=['louvain_r1'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/02_norm_{1}_louvain_r1_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# Process subcluster 8 individually (but not preprocessing from the beginning)
+# Get the cluster 8 anndata
+adataCluster8 = adata[adata.obs['louvain_r1']=='8',:]
+
+# Mucin and CFTR enriched ductal subpopulation
+sc.pl.umap(adataCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+
+# Analyze ductal (1077 cells) subgroups (CFTR_high/MUC1_low and CFTR_low/MUC1_high) 
+# Get the index of ductal subcluster
+Cluster8ductalDF = adataCluster8[adataCluster8.obs['Cluster']=='ductal'].to_df()   # 1077
+
+# Get the ratio of expression
+# pd.set_option('display.float_format', lambda x: '%.2f' % x)
+Cluster8ductalDF['CFTR_rank'] = Cluster8ductalDF['CFTR'].rank()
+Cluster8ductalDF['MUC1_rank'] = Cluster8ductalDF['MUC1'].rank()
+Cluster8ductalDF['rank_CFTR_minus_MUC1'] = Cluster8ductalDF.apply(lambda row: (row['CFTR_rank'] - row['MUC1_rank']), axis=1)
+# Cluster8ductalDF[['CFTR', 'MUC1', 'rank_CFTR_minus_MUC1']]
+
+# Get median for both genes
+# cftrMedianExp = np.float(Cluster8ductalDF['CFTR'].describe()[['50%']].values)
+# muc1MedianExp = np.float(Cluster8ductalDF['MUC1'].describe()[['50%']].values)
+chmlDuctalIdx  = Cluster8ductalDF[Cluster8ductalDF['rank_CFTR_minus_MUC1'] >= 100 ].index.tolist()                # 105
+clmhDuctalIdx  = Cluster8ductalDF[Cluster8ductalDF['rank_CFTR_minus_MUC1'] <= -100].index.tolist()                # 94
+otherDuctalIdx = Cluster8ductalDF.loc[~Cluster8ductalDF.index.isin(chmlDuctalIdx + clmhDuctalIdx)].index.tolist() # 237
+
+# print(len(chmlDuctalIdx))
+# print(len(clmhDuctalIdx))
+# print(len(otherDuctalIdx))
+
+# Get a new subcluster column
+adataCluster8.obs['ductal_subcluster_cluster8'] = adataCluster8.obs['Cluster']
+
+# Add new categories
+adataCluster8.obs['ductal_subcluster_cluster8'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+
+# Get a new subcluster column
+adataCluster8.obs['ductal_subcluster_cluster8'].loc[chmlDuctalIdx]  = adataCluster8.obs['ductal_subcluster_cluster8'].loc[chmlDuctalIdx].replace('ductal','ductal_cftrHigh_muc1Low') 
+adataCluster8.obs['ductal_subcluster_cluster8'].loc[clmhDuctalIdx]  = adataCluster8.obs['ductal_subcluster_cluster8'].loc[clmhDuctalIdx].replace('ductal','ductal_cftrLow_muc1High') 
+adataCluster8.obs['ductal_subcluster_cluster8'].loc[otherDuctalIdx] = adataCluster8.obs['ductal_subcluster_cluster8'].loc[otherDuctalIdx].replace('ductal','ductal_other') 
+
+adataCleanDucCluster8 = adataCluster8[~((adataCluster8.obs['ductal_subcluster_cluster8'] == 'schwann') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'acinar') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'activated_stellate') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'ductal_other'))]
+
+# Visualize new subclusers
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/04_norm_{1}_ductal_subcluster_cluster8_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/04_norm_{1}_ductal_subcluster_cluster8_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# Mucin and CFTR enriched in clean ductal subpopulation
+sc.pl.umap(adataCleanDucCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_clean_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataCleanDucCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_clean_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 7.2) Marker genes & cluster annotation
 # Calculate marker genes
