@@ -301,11 +301,15 @@ adataCluster8.obs['ductal_subcluster_cluster8'].loc[otherDuctalIdx] = adataClust
 adataCleanDucCluster8 = adataCluster8[~((adataCluster8.obs['ductal_subcluster_cluster8'] == 'schwann') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'acinar') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'activated_stellate') | (adataCluster8.obs['ductal_subcluster_cluster8'] == 'ductal_other'))]
 
 # Visualize new subclusers
-sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adataCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/04_norm_{1}_ductal_subcluster_cluster8_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-
-sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+sc.pl.umap(adataCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/04_norm_{1}_ductal_subcluster_cluster8_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/04_norm_{1}_clean_ductal_subcluster_cluster8_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/04_norm_{1}__clean_ductal_subcluster_cluster8_UMAP_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
 # Mucin and CFTR enriched in clean ductal subpopulation
 sc.pl.umap(adataCleanDucCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
@@ -314,6 +318,33 @@ sc.pl.umap(adataCleanDucCluster8, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_ra
 plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_clean_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
 
+# 9.1) Marker genes & cluster annotation
+# Calculate marker genes
+sc.tl.rank_genes_groups(adataCleanDucCluster8, groupby='ductal_subcluster_cluster8', groups=['ductal_cftrHigh_muc1Low'], key_added='rank_genes_CftrHighMuc1Low_over_Muc1HighCftrLow', reference='ductal_cftrLow_muc1High', n_genes=adataCleanDucCluster8.shape[1])
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_CftrHighMuc1Low_over_Muc1HighCftrLow.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Extract and save dataframe of ranked genes
+ngDF = pd.DataFrame()
+for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+  ngDF[n] = pd.DataFrame(adataCleanDucCluster8.uns['rank_genes_CftrHighMuc1Low_over_Muc1HighCftrLow'][n])['ductal_cftrHigh_muc1Low']
+ngDF.to_csv("{0}/03_normalizedRaw_CleanDuctalSubCluster_rank_genes_CftrHighMuc1Low_over_Muc1HighCftrLow.txt".format(countsDir), sep='\t', header=True, index=False, float_format='%.2g')
+
+# Plot additional marker genes on UMAP
+# Mucin enriched ductal subpopulation
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8', 'MUC1', 'MUC13', 'TFF1', 'TFF2'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_marker_genes_mucin_enriched_ductal_subpopulation_UMAPs_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# CFTR population
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8', 'KRT19', 'KRT7', 'CFTR', 'AQP3', 'AQP5', 'CA2', 'CA4', 'SCTR', 'SLC26A6'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_marker_genes_cftr_enriched_ductal_subpopulation_UMAPs_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# CFTR population
+sc.pl.umap(adataCleanDucCluster8, color=['ductal_subcluster_cluster8', 'ANXA2','ANXA3','ANXA4','CDX2','ID2','SOX6','SCTR','CD44','ID3','CLDN4','KLF6','LGALS3','NCOA7','ANXA1','ANXA2','CLDN1','KRT17','LAMC2','S100A16','ABCC3','AMBP','ANXA4','CLDN18','ONECUT2','PDX1','NKX6.1'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_additional_interesting_genes_UMAPs_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+for g in ['ductal_subcluster_cluster8', 'MUC1', 'MUC13', 'TFF1', 'TFF2', 'KRT19', 'KRT7', 'CFTR', 'AQP3', 'AQP5', 'CA2', 'CA4', 'SCTR', 'SLC26A6', 'ANXA2','ANXA3','ANXA4','CDX2','ID2','SOX6','SCTR','CD44','ID3','CLDN4','KLF6','LGALS3','NCOA7','ANXA1','ANXA2','CLDN1','KRT17','LAMC2','S100A16','ABCC3','AMBP','ANXA4','CLDN18','ONECUT2','PDX1','NKX6.1']:
+  sc.pl.umap(adataCleanDucCluster8, color= g, use_raw=False, color_map=mymap, size=50, edgecolor='grey', linewidth=0.01, alpha=0.9, projection='3d', show=False)
+  plt.savefig("{0}/03_{1}_marker_gene_{2}_UMAPs_3D.pdf".format(qcDir, bname,g) , bbox_inches='tight'); plt.close('all')
 
 
 
