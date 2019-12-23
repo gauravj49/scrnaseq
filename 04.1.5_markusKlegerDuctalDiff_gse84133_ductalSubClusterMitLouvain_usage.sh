@@ -18,6 +18,10 @@ import anndata2ri
 # Ignore R warning messages
 rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)
 
+# turn off warning for python3 erorrs
+import warnings
+warnings.filterwarnings('ignore')
+
 # Reset random state
 np.random.seed(2105)
 
@@ -258,29 +262,34 @@ plt.savefig("{0}/02_norm_{1}_louvain_r1_UMAP_3D.png".format(qcDir, bname) , bbox
 adata.obs['customClusters'] = adata.obs['louvain_r1']
 
 # Add new categories
-adata.obs['customClusters'].cat.add_categories(['alpha','acinar','beta','delta', 'gamma','ductal'], inplace=True) 
+adata.obs['customClusters'].cat.add_categories(['alpha','acinar','beta','delta', 'gammaEpsilon','ductal'], inplace=True) 
 
 # Get a new subcluster column
-# 0+1+15   = alpha
+# 0+1+13   = alpha
 # 2+10     = acinar
 # 3+4+5+16 = beta
 # 6        = delta
-# 11       = gamma
+# 11       = gamma + Epsilon
 # 7+8      = ductal
-adata.obs['customClusters'].loc[adata.obs['customClusters']=='6']  = 'delta'
-adata.obs['customClusters'].loc[adata.obs['customClusters']=='11'] = 'gamma'
+adata.obs['customClusters'].loc[adata.obs['customClusters' ]=='6']  = 'delta'
+adata.obs['customClusters'].loc[adata.obs['customClusters' ]=='11'] = 'gammaEpsilon'
 adata.obs['customClusters'].loc[(adata.obs['customClusters']=='7')|(adata.obs['customClusters']=='8')]  = 'ductal'
 adata.obs['customClusters'].loc[(adata.obs['customClusters']=='2')|(adata.obs['customClusters']=='10')] = 'acinar'
-adata.obs['customClusters'].loc[(adata.obs['customClusters']=='0')|(adata.obs['customClusters']=='1')|(adata.obs['customClusters']=='15')] = 'alpha'
+adata.obs['customClusters'].loc[(adata.obs['customClusters']=='0')|(adata.obs['customClusters']=='1')|(adata.obs['customClusters']=='13')] = 'alpha'
 adata.obs['customClusters'].loc[(adata.obs['customClusters']=='3')|(adata.obs['customClusters']=='4')|(adata.obs['customClusters']=='5')|(adata.obs['customClusters']=='16')] = 'beta'
+
+# # adata.obs['customClusters'].loc[adata.obs['customClusters']=='11'] = 'gamma'
+# adata.obs['customClusters'].loc[(adata.obs['Cluster']=='gamma') & (adata.obs['customClusters' ]=='11')]   = 'gamma'
+# adata.obs['customClusters'].loc[(adata.obs['Cluster']=='epsilon') & (adata.obs['customClusters' ]=='11')] = 'epsilon'
 
 # Remove the cells that are not needed
 # 9     = stellate
 # 12    = endothelial
-# 13,14 = unknown, might be alpha cells
+# 15,14 = unknown, might be alpha cells
 # 17    = immune cells
 # 18    = unknown cells
-adataCustom = adata[~((adata.obs['customClusters']=='9') | (adata.obs['customClusters']=='12') |(adata.obs['customClusters']=='13') | (adata.obs['customClusters']=='14') | (adata.obs['customClusters']=='17') | (adata.obs['customClusters']=='18'))]
+adataCustom = adata[~((adata.obs['customClusters']=='9') | (adata.obs['customClusters']=='12') |(adata.obs['customClusters']=='14') | (adata.obs['customClusters']=='15') | (adata.obs['customClusters']=='17') | (adata.obs['customClusters']=='18')) ]
+# adataCustom = adata[(adata.obs['customClusters']=='alpha') | (adata.obs['customClusters']=='acinar')| (adata.obs['customClusters']=='beta') |(adata.obs['customClusters']=='delta') | (adata.obs['customClusters']=='gamma') | (adata.obs['customClusters']=='ductal') | (adata.obs['customClusters']=='epsilon')]
 
 # Calculations for the visualizations
 sc.pp.pca(adataCustom, n_comps=50, use_highly_variable=True, svd_solver='arpack')
@@ -317,7 +326,7 @@ sc.tl.rank_genes_groups(adataCustom, groupby='customClusters', key_added='rank_g
 # Name: customClusters, dtype: int64
 
 # Plot marker genes
-sc.pl.rank_genes_groups(adataCustom, key='rank_genes_customClusters', groups=['beta','alpha','ductal','acinar','delta','gamma'], fontsize=12, show=False)
+sc.pl.rank_genes_groups(adataCustom, key='rank_genes_customClusters', groups=['beta','alpha','ductal','acinar','delta','gammaEpsilon'], fontsize=12, show=False)
 plt.savefig("{0}/04_{1}_marker_genes_ranking_customClusters.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
 # Save UMAP of marker genes
@@ -333,7 +342,7 @@ umapCordDF = pd.DataFrame(adataCustom.obsm['X_umap'],index=rowIdx, columns=['UMA
 umapCordDF.to_csv("{0}/04_normalizedRaw_{1}_customClusters_UMAP_Coordinates.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId")
 
 # Dataframe of ranked genes
-for g in ['beta','alpha','ductal','acinar','delta','gamma']:
+for g in ['beta','alpha','ductal','acinar','delta','gammaEpsilon']:
   ngDF = pd.DataFrame()
   for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
     ngDF[n] = pd.DataFrame(adataCustom.uns['rank_genes_customClusters'][n])[g]
@@ -355,22 +364,136 @@ pvalsDF.to_csv("{0}/04_normalizedRaw_{1}_rank_genes_customClusters_pvals.txt".fo
 pvalsadjDF = pd.DataFrame(adataCustom.uns['rank_genes_customClusters']['pvals_adj'])
 pvalsadjDF.to_csv("{0}/04_normalizedRaw_{1}_rank_genes_customClusters_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False, float_format='%.2g')
 
+###############################################################################################################################
+# Analysis of Cluster 7 + Cluster 8
+
+# Get the cluster 7+8 anndata
+adataDuctalSubCluster = adataCustom[adataCustom.obs['customClusters'] == 'ductal']
+
+# Analyze ductal (1077 cells) subgroups (CFTR_high/MUC1_low and CFTR_low/MUC1_high) 
+# Get the index of ductal subcluster
+ductalSubClusterDF = adataDuctalSubCluster.to_df()   # 910
+
+# Get the ratio of expression
+# pd.set_option('display.float_format', lambda x: '%.2f' % x)
+ductalSubClusterDF['CFTR_rank'] = ductalSubClusterDF['CFTR'].rank()
+ductalSubClusterDF['MUC1_rank'] = ductalSubClusterDF['MUC1'].rank()
+ductalSubClusterDF['rank_CFTR_minus_MUC1'] = ductalSubClusterDF.apply(lambda row: (row['CFTR_rank'] - row['MUC1_rank']), axis=1)
+# ductalSubClusterDF[['CFTR', 'MUC1', 'rank_CFTR_minus_MUC1']]
+
+# Get median for both genes
+# cftrMedianExp = np.float(ductalSubClusterDF['CFTR'].describe()[['50%']].values)
+# muc1MedianExp = np.float(ductalSubClusterDF['MUC1'].describe()[['50%']].values)
+chmlDuctalIdx  = ductalSubClusterDF[ductalSubClusterDF['rank_CFTR_minus_MUC1'] >= 100 ].index.tolist()                # 269
+clmhDuctalIdx  = ductalSubClusterDF[ductalSubClusterDF['rank_CFTR_minus_MUC1'] <= -100].index.tolist()                # 312
+otherDuctalIdx = ductalSubClusterDF.loc[~ductalSubClusterDF.index.isin(chmlDuctalIdx + clmhDuctalIdx)].index.tolist() # 329
+
+# print(len(chmlDuctalIdx))
+# print(len(clmhDuctalIdx))
+# print(len(otherDuctalIdx))
+
+# Get a new subcluster column
+adataDuctalSubCluster.obs['subClusters'] = adataDuctalSubCluster.obs['customClusters']
+
+# Add new categories
+adataDuctalSubCluster.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+
+# Get a new subcluster column
+adataDuctalSubCluster.obs['subClusters'].loc[chmlDuctalIdx]  = adataDuctalSubCluster.obs['subClusters'].loc[chmlDuctalIdx].replace('ductal','ductal_cftrHigh_muc1Low') 
+adataDuctalSubCluster.obs['subClusters'].loc[clmhDuctalIdx]  = adataDuctalSubCluster.obs['subClusters'].loc[clmhDuctalIdx].replace('ductal','ductal_cftrLow_muc1High') 
+adataDuctalSubCluster.obs['subClusters'].loc[otherDuctalIdx] = adataDuctalSubCluster.obs['subClusters'].loc[otherDuctalIdx].replace('ductal','ductal_other') 
+
+adataDuctalSubCluster = adataDuctalSubCluster[~((adataDuctalSubCluster.obs['subClusters'] == 'ductal'))]
+
+# Visualize new subclusers
+sc.pl.umap(adataDuctalSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataDuctalSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# Mucin and CFTR enriched in clean ductal subpopulation
+sc.pl.umap(adataDuctalSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataDuctalSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# In [10]: ductalSubClusterDF.shape
+# Out[10]: (910, 15120)
+ductalSubClusterRankDF   = ductalSubClusterDF[['CFTR', 'MUC1', 'CFTR_rank', 'MUC1_rank', 'rank_CFTR_minus_MUC1']]
+
+# Save the relevant data into an excel
+ductalSubClusterRankDF.to_csv("{0}/04_{1}_ductalSubClusters_gene_expression_ranks.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId", float_format='%.4g')
+
+# Calculate ranked marker genes
+sc.tl.rank_genes_groups(adataDuctalSubCluster, groupby='subClusters', groups=['ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_cftrLow_muc1High', n_genes=adataDuctalSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataDuctalSubCluster, key='rank_genes_ref_ductal_cftrLow_muc1High', groups=['ductal_cftrHigh_muc1Low','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrLow_muc1High.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adataDuctalSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_other'], key_added='rank_genes_ref_ductal_cftrHigh_muc1Low', reference='ductal_cftrHigh_muc1Low', n_genes=adataDuctalSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataDuctalSubCluster, key='rank_genes_ref_ductal_cftrHigh_muc1Low', groups=['ductal_cftrLow_muc1High','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrHigh_muc1Low.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adataDuctalSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_other', reference='ductal_other', n_genes=adataDuctalSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataDuctalSubCluster, key='rank_genes_ref_ductal_other', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_other.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Dataframe of ranked genes
+for g in ['ductal_cftrHigh_muc1Low','ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataDuctalSubCluster.uns['rank_genes_ref_ductal_cftrLow_muc1High'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_ductal_cftrLow_muc1High.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrLow_muc1High', 'ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataDuctalSubCluster.uns['rank_genes_ref_ductal_cftrHigh_muc1Low'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_cftrHigh_muc1Low.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataDuctalSubCluster.uns['rank_genes_ref_ductal_other'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_other.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
 # Save the normalized, log transformed, batch and cell cycle corrected data
+# Add new categories
+adataCustom.obs['subClusters'] = adataCustom.obs['customClusters']
+adataCustom.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+adataCustom.obs['subClusters'].loc[chmlDuctalIdx]  = 'ductal_cftrHigh_muc1Low'
+adataCustom.obs['subClusters'].loc[clmhDuctalIdx]  = 'ductal_cftrLow_muc1High'
+adataCustom.obs['subClusters'].loc[otherDuctalIdx] = 'ductal_other'
+
 customClustersDF                              = adataCustom.to_df()
 customClustersDF['originalClusterAssignment'] = adataCustom.obs['Cluster']
 customClustersDF['Batch']                     = adataCustom.obs['Batch']
 customClustersDF['louvain_r1']                = adataCustom.obs['louvain_r1']
 customClustersDF['customClusters']            = adataCustom.obs['customClusters']
+customClustersDF['subClusters']               = adataCustom.obs['subClusters']
 customClustersDF.to_csv("{0}/04_normalizedRaw_T_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
 customClustersDF.T.to_csv("{0}/04_normalizedRaw_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
 
 
+################ Calculate ranked marker genes 
+# Get additional gene lists:
+# -CFTR high versus (Muc1 high and ductal other)
+# -Muc1 high versus (CFTR high and ductal other)
+# -Ductal other versus (CFTR high and Muc1 high)
 
+sc.tl.rank_genes_groups(adataDuctalSubCluster, groupby='subClusters', key_added='rank_genes_ductalSubClusters', n_genes=adataDuctalSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataDuctalSubCluster, key='rank_genes_ductalSubClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low', 'ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_ductalSubCluster_eachClusterVsRest.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
 
-
-
-
-
+# Dataframe of ranked genes
+for g in ['ductal_cftrHigh_muc1Low', 'ductal_cftrLow_muc1High', 'ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataDuctalSubCluster.uns['rank_genes_ductalSubClusters'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_rest.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
 #########################################
 # Save session
