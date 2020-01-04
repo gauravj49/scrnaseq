@@ -750,3 +750,12 @@ import dill
 filename = "{0}/{1}.pkl".format(output_dir, projName)
 dill.load_session(filename)
 #########################################
+
+
+import scvelo as scv
+scv.logging.print_version()
+
+scv.utils.show_proportions(adata)
+adata
+
+scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
