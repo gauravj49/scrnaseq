@@ -241,12 +241,23 @@ plt.savefig("{0}/03_batchCorrected_{1}_clustering_cellType_legend_onData_UMAP.pn
 
 
 #########################################
-# Save session
-import dill
-filename = "{0}/{1}.pkl".format(output_dir, projName)
+# # Save session
+# import dill
+# filename = "{0}/{1}.pkl".format(output_dir, projName)
 
-# and to load the session again:
-import dill
-filename = "{0}/{1}.pkl".format(output_dir, projName)
-dill.load_session(filename)
+# # and to load the session again:
+# import dill
+# filename = "{0}/{1}.pkl".format(output_dir, projName)
+# dill.load_session(filename)
+
+# Write the adata and cadata object to file
+adatafile  = "{0}/{1}_adata.h5ad" .format(output_dir, projName); adata.write(adatafile)
+cadatafile = "{0}/{1}_cadata.h5ad".format(output_dir, projName); cadata.write(cadatafile) 
+
+# Read back the corrected adata object
+adatafile  = "{0}/{1}_adata.h5ad" .format(output_dir, projName);
+data       = sc.read_h5ad(adatafile)
+cadatafile = "{0}/{1}_cadata.h5ad".format(output_dir, projName);
+cdata      = sc.read_h5ad(cadatafile)
+
 #########################################
