@@ -255,9 +255,7 @@ adatafile  = "{0}/{1}_adata.h5ad" .format(output_dir, projName); adata.write(ada
 cadatafile = "{0}/{1}_cadata.h5ad".format(output_dir, projName); cadata.write(cadatafile) 
 
 # Read back the corrected adata object
-adatafile  = "{0}/{1}_adata.h5ad" .format(output_dir, projName);
-data       = sc.read_h5ad(adatafile)
-cadatafile = "{0}/{1}_cadata.h5ad".format(output_dir, projName);
-cdata      = sc.read_h5ad(cadatafile)
+adatafile  = "{0}/{1}_adata.h5ad" .format(output_dir, projName); adata  = sc.read_h5ad(adatafile)
+cadatafile = "{0}/{1}_cadata.h5ad".format(output_dir, projName); cadata = sc.read_h5ad(cadatafile)
 
 #########################################
