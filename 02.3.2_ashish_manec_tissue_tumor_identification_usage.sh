@@ -64,6 +64,13 @@ bname           = projName
 qcDir           = "{0}/qc".format(output_dir); create_dir(qcDir)
 countsDir       = "{0}/counts".format(output_dir); create_dir(countsDir)
 
+# Define a nice colour map for gene expression
+colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
+colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,20))
+colorsComb = np.vstack([colors3, colors2])
+mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
+
+
 # 1 Reading the data
 # Merge 10x datasets for different mices
 # https://github.com/theislab/scanpy/issues/267
@@ -111,16 +118,16 @@ adata.obs['mt_frac'] = adata.X[:, mt_gene_mask].sum(1)/adata.obs['n_counts']
 # 2.2) Plot QC metrics
 # Sample quality plots
 t1 = sc.pl.violin(adata, 'n_counts', groupby='tissueID', size=2, log=True, cut=0, show=False)
-plt.savefig("{0}/{1}_tissueID_nCounts_plot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_tissueID_nCounts_plot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 t2 = sc.pl.violin(adata, 'mt_frac', groupby='tissueID', show=False)
-plt.savefig("{0}/{1}_tissueID_mtFraction_plot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_tissueID_mtFraction_plot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 2.3) Data quality summary plots
 p1 = sc.pl.scatter(adata, 'n_counts', 'n_genes', color='mt_frac', show=False)
-plt.savefig("{0}/{1}_genes_counts_scatterplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_genes_counts_scatterplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 p2 = sc.pl.scatter(adata[adata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', show=False)
-plt.savefig("{0}/{1}_genes_counts_scatterplot_zoomedin.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_genes_counts_scatterplot_zoomedin.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # NOTE: 
 # It can be seen in the main cloud of data points, that cells with lower counts and genes tend to have a higher fraction of mitochondrial counts. 
@@ -132,17 +139,17 @@ plt.savefig("{0}/{1}_genes_counts_scatterplot_zoomedin.png".format(qcDir, bname)
 
 # 2.3) Thresholding decision based on counts
 p3 = sns.distplot(adata.obs['n_counts'], kde=False); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 p4 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']<2000], kde=False, bins=1000); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot_lessthan_2000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot_lessthan_2000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 p5 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']>5000], kde=False, bins=1000); #plt.show()
-plt.savefig("{0}/{1}_ncounts_histogramplot_greaterthan_5000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot_greaterthan_5000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 2.4) Thresholding decision based on genes
 p6 = sns.distplot(adata.obs['n_genes'], kde=False, bins=1000); # plt.show()
-plt.savefig("{0}/{1}_genes_histogramplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_genes_histogramplot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 p7 = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<1000], kde=False, bins=500); # plt.show()
-plt.savefig("{0}/{1}_genes_histogramplot_lessthan_1000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/01_raw_{1}_genes_histogramplot_lessthan_1000.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 2.5) Filter cells according to identified QC thresholds:
 origadata = adata.copy()
@@ -184,13 +191,15 @@ sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
 print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
 sc.pp.neighbors(adata, random_state = 2105)
-sc.tl.umap(adata, random_state = 2105)
+sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # 2.9) Plot visualizations
 sc.pl.pca_scatter(adata, color='n_counts',show=False)
 plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ########################
 # 3) Expression recovery (denoising), Normalization and log transformation
@@ -222,11 +231,11 @@ del adata_pp
 # Visualize the estimated size factors
 adata.obs['size_factors'] = size_factors
 sc.pl.scatter(adata, 'size_factors', 'n_counts', show=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_vs_ncounts.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_vs_ncounts.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.scatter(adata, 'size_factors', 'n_genes' , show=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_vs_ngenes.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_vs_ngenes.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sns.distplot(size_factors, bins=50, kde=False)
-plt.savefig("{0}/{1}_scrna_sizefactors_histogram.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_histogram.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Keep the count data in a counts layer
 adata.layers["counts"] = adata.X.copy()
@@ -246,7 +255,7 @@ sc.pp.combat(adata, key='tissueID')
 sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
 print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
 sc.pl.highly_variable_genes(adata, show=False)
-plt.savefig("{0}/{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_highly_variable_genes.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Highly variable gene information is stored automatically in the adata.var['highly_variable'] field. The dataset now contains:
 # a 'counts' layer with count data
@@ -268,13 +277,11 @@ g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
 
 sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/{1}_S_G2M_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_S_G2M_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.umap(adata, color='phase', use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# # Save the normalized, log transformed, batch and cell cycle corrected data
-# adata.to_df().to_csv("{0}/02_normalizedRaw_T_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId")
-# adata.to_df().T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol")
+plt.savefig("{0}/03_normBC_{1}_combined_Phase_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color='phase', use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_normBC_{1}_combined_Phase_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -320,26 +327,26 @@ sc.tl.umap(adata, random_state = 2105, n_components=3)
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
 sc.pl.umap(adata, color=['louvain'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_{1}_clustering_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_{1}_clustering_all_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_all_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_{1}_clustering_louvain_r15_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_louvain_r15_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/02_{1}_clustering_louvain_r15_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_louvain_r15_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Other UMAPs
 sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_tissueID_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.pca_scatter(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_ncounts_PCA.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_ncounts_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.umap(adata, color=['log_counts', 'mt_frac'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_logCounts_mtFrac_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 7.2) Marker genes & cluster annotation
 # Calculate marker genes
@@ -347,7 +354,7 @@ sc.tl.rank_genes_groups(adata, groupby='louvain_r1.5', key_added='rank_genes_r1.
 
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes_r1.5', fontsize=12, show=False)
-plt.savefig("{0}/{1}_louvain_r15_marker_genes_ranking.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_louvain_r15_marker_genes_ranking.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Annotation of cluster r_1.5 with known marker genes
 markerDir = "{0}/markerDir".format(qcDir); create_dir(markerDir)
@@ -402,7 +409,7 @@ for e in mylist:
 
 adata.obs['hgMycIresCd2'] = humaniresmyc
 sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # --------------------------------------------------------
 # Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
@@ -425,7 +432,7 @@ memberships  = from_memberships(ucblofl)
 
 fig = plt.figure(figsize=(15,5), dpi=175)
 upsetplot.plot(upsetContent, sum_over=False,show_counts='%d', fig=fig)
-plt.savefig("{0}/02_norm_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Plot only selected groups
 upcDF        = upsetContent.query('humanMyc == True and gap == False and ires == False and humanCd2 == False')
@@ -502,14 +509,14 @@ adata.obs['cellType'].cat.categories
 
 # Draw Umaps with the categories
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_{1}_clustering_cellType_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_cellType_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/02_{1}_clustering_cellType_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_cellType_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 plt.figure(figsize=(50,50))
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False,zorder=0)
-plt.savefig("{0}/02_{1}_clustering_cellType_legend_onData_UMAP.jpg".format(qcDir, bname) , bbox_inches='tight', dpi=600, rasterized=True, edgecolor='white'); plt.close('all')
+plt.savefig("{0}/03_normBC_{1}_clustering_cellType_legend_onData_UMAP.jpg".format(qcDir, bname) , bbox_inches='tight', dpi=600, rasterized=True, edgecolor='white'); plt.close('all')
 
 # Plot Final Marker genes
 # Calculate marker genes
@@ -548,6 +555,12 @@ plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".f
 cellTypesDF = pd.DataFrame(adata.obs['cellType'])
 cellTypesDF.to_csv("{0}/03_{1}_cellTypes.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="cellId")
 
+
+#########################################
+# Save session
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.dump_session(filename)
 
 
 
