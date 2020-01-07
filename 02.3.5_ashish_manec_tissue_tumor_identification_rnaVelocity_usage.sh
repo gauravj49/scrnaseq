@@ -16,5 +16,11 @@ do
 done
 
 # Merging multiple samples/lanes in a single file
-files = ["file1.loom","file2.loom","file3.loom","file4.loom"]
+ipython
+
+import loompy
+files=["/media/rad/HDD2/temp_manec/bulk997_mouse_MmHgMycIresCd2/velocyto/bulk997_mouse_MmHgMycIresCd2.loom","/media/rad/HDD2/temp_manec/bulk1001_mouse_MmHgMycIresCd2/velocyto/bulk1001_mouse_MmHgMycIresCd2.loom","/media/rad/HDD2/temp_manec/bulk1018_mouse_MmHgMycIresCd2/velocyto/bulk1018_mouse_MmHgMycIresCd2.loom","/media/rad/HDD2/temp_manec/stomach1001_mouse_MmHgMycIresCd2/velocyto/stomach1001_mouse_MmHgMycIresCd2.loom"]
+output_filename='/media/rad/HDD2/temp_manec/manec_tissues_merged_except1079_velocyto.loom'
 loompy.combine(files, output_filename, key="Accession")
+
+Cltr+D+D
