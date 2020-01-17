@@ -24,3 +24,37 @@ output_filename='/media/rad/HDD2/temp_manec/manec_tissues_merged_except1079_velo
 loompy.combine(files, output_filename, key="Accession")
 
 Cltr+D+D
+
+# Run scVelo
+ipython 
+
+import scvelo as scv
+
+# For beautified visualization you can change the matplotlib settings to our defaults with:
+scv.settings.set_figure_params('scvelo')
+
+# Read your data file (loom, h5ad, csv, …) using:
+filename = '/media/rad/HDD2/temp_manec/manec_tissues_merged_except1079_velocyto.loom'
+adata = scv.read(filename, cache=True)
+
+# show proportions of spliced/unspliced abundances
+scv.utils.show_proportions(adata)
+adata
+
+# Preprocess the data
+scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=2000)
+
+# Remove duplicate cells
+scv.pp.remove_duplicate_cells(adata)
+
+# Calculate moments
+scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
+
+# Compute velocity and velocity graph
+scv.tl.velocity(adata)
+scv.tl.velocity_graph(adata)
+
+# Plot results
+scv.tl.umap(adata, random_state = 2105, n_components=3)
+scv.pl.velocity_embedding_stream(adata, basis='umap')
+scv.pl.velocity_embedding(adata, basis='umap', arrow_length=2, arrow_size=1.5, dpi=150)
