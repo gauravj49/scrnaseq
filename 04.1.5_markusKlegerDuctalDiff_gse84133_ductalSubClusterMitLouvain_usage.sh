@@ -250,6 +250,13 @@ plt.savefig("{0}/02_norm_{1}_Cluster_legendOnData_UMAP.png".format(qcDir, bname)
 sc.pl.umap(adata, color=['Cluster'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/02_norm_{1}_Cluster_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
 
+# Additional UMAPs Genes
+sc.pl.umap(adata, color=['ONECUT1', 'ONECUT2', 'PDX1', 'NKX6.1', 'CHGA'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_onecut1_localization_UMAPs.pdf".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adata, color=['ONECUT1', 'ONECUT2', 'PDX1', 'NKX6.1', 'CHGA'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/02_norm_{1}_onecut1_localization_3D_UMAPs.pdf".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+
 # 5) LOUVAIN CLUSTERING 
 # 5.1) Perform clustering - using highly variable genes
 sc.tl.louvain(adata, resolution=1.0, key_added='louvain_r1'  , random_state=2105)
@@ -332,6 +339,7 @@ plt.savefig("{0}/04_{1}_marker_genes_ranking_customClusters.png".format(qcDir, b
 # Save UMAP of marker genes
 sc.pl.umap(adataCustom, color=['customClusters', 'KRT19', 'KRT7', 'CFTR', 'MUC1','PTF1A', 'CPA1', 'AMY2A', 'CTRC', 'PRSS1'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/04_{1}_selected_marker_genes_customClusters_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
 for g in ['customClusters', 'KRT19', 'KRT7', 'CFTR', 'MUC1', 'PTF1A', 'CPA1', 'AMY2A']:
   sc.pl.umap(adataCustom, color= g, use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
   plt.savefig("{0}/04_{1}_marker_gene_{2}_UMAPs.pdf".format(qcDir, bname,g) , bbox_inches='tight'); plt.close('all')

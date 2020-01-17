@@ -292,7 +292,8 @@ normCorrectedDF.T.to_csv("{0}/02_normalizedRaw_{1}_filtered.txt".format(countsDi
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
-sc.tl.umap(adata, random_state = 2105)
+sc.tl.umap(adata, random_state = 2105, n_components=3)
+
 
 
 # # Plot visualizations
@@ -373,6 +374,28 @@ pvalsDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_cellTypes_pvals.txt".format(
 
 pvalsadjDF = pd.DataFrame(adata.uns['rank_genes_cellTypes']['pvals_adj'])
 pvalsadjDF.to_csv("{0}/02_normalizedRaw_{1}_rank_genes_cellTypes_pvals_adj.txt".format(countsDir, projName), sep='\t', header=True, index=False)
+
+# Additional UMAPs Genes
+sc.pl.umap(adata, color=['ONECUT1', 'ONECUT2', 'PDX1', 'NKX61', 'CHGA'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_onecut1_localization_UMAPs.pdf".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adata, color=['ONECUT1', 'ONECUT2', 'PDX1', 'NKX61', 'CHGA'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/02_norm_{1}_onecut1_localization_3D_UMAPs.pdf".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
