@@ -140,14 +140,14 @@ for i, adata in enumerate(adatas):
   p7 = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<500], kde=False, bins=100); # plt.show()
   plt.savefig("{0}/01_raw_{1}_genes_histogramplot_lessthan_500.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-  # Reset the thresholds
-  minGenesPerCell = 300
-  minCountPerCell = 300
-  minCellsPergene = 25
-
   # 2.5) Filter cells according to identified QC thresholds:
   origadata = adata.copy()
   print('Total number of cells: {:d}'.format(adata.n_obs))
+
+  # Reset the thresholds
+  minGenesPerCell = 350
+  minCountPerCell = 300
+  minCellsPergene = 25
 
   sc.pp.filter_cells(adata, min_counts = minCountPerCell)
   print('Number of cells after min count filter: {:d}'.format(adata.n_obs))
@@ -166,7 +166,7 @@ for i, adata in enumerate(adatas):
   # Number of cells after min count filter: 897
   # Number of cells after MT filter: 818
   # Trying to set attribute `.obs` of view, copying.
-  # Number of cells after gene filter: 712
+  # Number of cells after gene filter: 688
 
   # 2.6) Filter genes according to identified QC thresholds:
   # Min 5 cells - filters out 0 count genes
@@ -174,7 +174,7 @@ for i, adata in enumerate(adatas):
   sc.pp.filter_genes(adata, min_cells=minCellsPergene)
   print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
   # Total number of genes: 11664
-  # Number of genes after cell filter: 8089
+  # Number of genes after cell filter: 8068
 
   # 2.8) Calculations for the visualizations
   sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
@@ -278,129 +278,126 @@ for i, adata in enumerate(adatas):
     except:
         print("- Error in r: {0}".format(i))
 
-  # 0    588
-  # 1    124
+  # 0    563
+  # 1    125
   # Name: louvain_r0.1, dtype: int64
 
-  # 0    506
-  # 1    124
-  # 2     82
+  # 0    487
+  # 1    125
+  # 2     76
   # Name: louvain_r0.2, dtype: int64
 
-  # 0    375
-  # 1    124
-  # 2    117
-  # 3     96
+  # 0    297
+  # 1    184
+  # 2    125
+  # 3     82
   # Name: louvain_r0.3, dtype: int64
 
-  # 0    261
-  # 1    178
-  # 2    124
-  # 3     97
-  # 4     52
+  # 0    280
+  # 1    193
+  # 2    125
+  # 3     90
   # Name: louvain_r0.4, dtype: int64
 
-  # 0    186
-  # 1    129
-  # 2    124
-  # 3    101
-  # 4     98
-  # 5     74
+  # 0    194
+  # 1    144
+  # 2    134
+  # 3    125
+  # 4     91
   # Name: louvain_r0.5, dtype: int64
 
-  # 0    179
-  # 1    131
-  # 2    124
-  # 3    101
-  # 4     99
-  # 5     78
+  # 0    141
+  # 1    134
+  # 2    125
+  # 3    114
+  # 4     93
+  # 5     81
   # Name: louvain_r0.6, dtype: int64
 
-  # 0    128
-  # 1    124
-  # 2    115
-  # 4    101
-  # 3    101
-  # 5     78
-  # 6     65
+  # 0    168
+  # 1    125
+  # 2    118
+  # 3     93
+  # 4     68
+  # 5     65
+  # 6     51
   # Name: louvain_r0.7, dtype: int64
 
-  # 0    128
-  # 1    124
-  # 2    119
-  # 4    101
-  # 3    101
-  # 5     74
+  # 0    148
+  # 1    125
+  # 2    120
+  # 3     95
+  # 4     68
+  # 5     67
   # 6     65
   # Name: louvain_r0.8, dtype: int64
 
-  # 0    128
-  # 1    124
-  # 2    102
-  # 3    100
-  # 4     88
-  # 5     75
+  # 0    148
+  # 1    113
+  # 2     97
+  # 3     95
+  # 4     76
+  # 5     66
   # 6     65
-  # 7     30
+  # 7     28
   # Name: louvain_r0.9, dtype: int64
+
 
   print(adata.obs['louvain'].value_counts())
   print(adata.obs['louvain_r1'].value_counts())
   print(adata.obs['louvain_r1.5'].value_counts())
   print(adata.obs['louvain_r2'].value_counts())
 
-  # 0    124
-  # 1    102
-  # 2    100
-  # 3     88
+  # 0    144
+  # 1     97
+  # 2     96
+  # 3     94
   # 4     76
-  # 5     75
-  # 6     65
-  # 7     52
-  # 8     30
+  # 5     66
+  # 6     62
+  # 7     28
+  # 8     25
   # Name: louvain, dtype: int64
 
-  # 0    124
-  # 1    102
-  # 2    100
-  # 3     88
+  # 0    144
+  # 1     97
+  # 2     96
+  # 3     94
   # 4     76
-  # 5     75
-  # 6     65
-  # 7     52
-  # 8     30
+  # 5     66
+  # 6     62
+  # 7     28
+  # 8     25
   # Name: louvain_r1, dtype: int64
 
-  # 0     96
-  # 1     95
-  # 2     94
-  # 3     81
-  # 4     70
-  # 5     54
-  # 6     52
-  # 7     49
-  # 8     44
-  # 9     33
-  # 10    30
-  # 11    14
+  # 0    119
+  # 1     98
+  # 2     95
+  # 3     83
+  # 4     76
+  # 5     68
+  # 6     62
+  # 7     33
+  # 8     28
+  # 9     26
   # Name: louvain_r1.5, dtype: int64
 
-  # 0     94
-  # 1     90
-  # 2     75
-  # 3     70
-  # 4     67
-  # 5     58
-  # 6     49
-  # 7     48
-  # 8     44
-  # 9     38
-  # 10    33
-  # 11    32
-  # 12    14
+  # 0     84
+  # 1     81
+  # 3     63
+  # 2     63
+  # 4     62
+  # 5     59
+  # 6     57
+  # 7     49
+  # 9     39
+  # 8     39
+  # 10    37
+  # 11    28
+  # 12    27
   # Name: louvain_r2, dtype: int64
 
-# Looking at the data, choose r = 1.5
+
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 sc.pp.neighbors(adata)
@@ -414,9 +411,10 @@ plt.savefig("{0}/02_norm_{1}_clustering_louvain_UMAP.png".format(qcDir, bname) ,
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_all_louvain_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_louvain_r15_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# Looking at the data, choose r = 0.5
+sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_louvain_r05_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/02_norm_{1}_clustering_louvain_r15_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
+plt.savefig("{0}/02_norm_{1}_clustering_louvain_r05_legend_onData_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
