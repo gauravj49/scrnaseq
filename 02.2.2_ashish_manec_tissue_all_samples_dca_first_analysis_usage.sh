@@ -144,7 +144,7 @@ origadata = adata.copy()
 print('Total number of cells: {:d}'.format(adata.n_obs))
 sc.pp.filter_cells(adata, min_counts = minCountPerCell)
 print('Number of cells after min count filter: {:d}'.format(adata.n_obs))
-adata = adata[adata.obs['mt_frac'] < 0.25]
+adata = adata[adata.obs['mt_frac'] < mtGenesFilter]
 print('Number of cells after MT filter: {:d}'.format(adata.n_obs))
 sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
 print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
