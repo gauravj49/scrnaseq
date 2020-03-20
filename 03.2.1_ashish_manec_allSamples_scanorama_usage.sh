@@ -1,6 +1,7 @@
 # pwd
 cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 
+# NOTE: plt.subplot(number_of_rows, number_of_columns, index_of_the_subplot) 
 ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # Loading the python libraries
@@ -306,16 +307,23 @@ print(adata.var.highly_variable_nbatches.value_counts())
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
 sc.pp.neighbors(adata, random_state = 2105)
-sc.tl.tsne(adata, n_pcs = 50, n_jobs=16)
 sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # 2.9) Plot visualizations
-sc.pl.pca_scatter(adata, color='n_counts',show=False)
-plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
-plt.savefig("{0}/01_raw_{1}_clustering_tissueID_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# PCA
+sc.pl.pca_scatter(adata, color='tissueID', components = ['1,2','2,3','3,4','4,5','5,6','6,7'], ncols=3, hspace=0.35, wspace=0.35, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/01_raw_{1}_tissueID_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# UMAPS
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('Raw data')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/01_raw_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ########################
 # 3) # Normalization using SCRAN
@@ -345,12 +353,14 @@ del adata_pp
 
 # Visualize the estimated size factors
 adata.obs['size_factors'] = size_factors
-sc.pl.scatter(adata, 'size_factors', 'n_counts', show=False)
-plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_vs_ncounts.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.scatter(adata, 'size_factors', 'n_genes' , show=False)
-plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_vs_ngenes.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sns.distplot(size_factors, bins=50, kde=False)
-plt.savefig("{0}/03_normBC_{1}_scrna_sizefactors_histogram.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('Estimated size factors')
+ax = fig.add_subplot(1, 2, 1)
+sc.pl.scatter(adata, 'size_factors', 'n_counts', ax=ax, show=False)
+ax = fig.add_subplot(1, 2, 2)
+sc.pl.scatter(adata, 'size_factors', 'n_genes', ax=ax, show=False)
+plt.tight_layout()
+plt.savefig("{0}/02_norm_{1}_scran_sizefactors_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Keep the count data in a counts layer
 adata.layers["counts"] = adata.X.copy()
@@ -378,12 +388,18 @@ g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
 sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 
 # 4.3) Visualize the effects of cell cycle
-sc.pl.umap(adata, color=['S_score', 'G2M_score'], use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_S_G2M_Phase_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color='phase', use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/02_norm_{1}_combined_Phase_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color='phase', use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
-plt.savefig("{0}/02_norm_{1}_combined_Phase_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+fig = plt.figure(figsize=(16,12))
+fig.suptitle('Effects of Cell Cycle')
+ax = fig.add_subplot(2, 2, 1)
+sc.pl.umap(adata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+ax = fig.add_subplot(2, 2, 2)
+sc.pl.umap(adata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+ax = fig.add_subplot(2, 2, 3)
+sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+ax = fig.add_subplot(2, 2, 4, projection='3d')
+sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.tight_layout()
+plt.savefig("{0}/02_norm_{1}_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
 
 # 4) Technical correction
 # 4.1) Batch Correction using Combat
@@ -396,10 +412,11 @@ sc.pp.pca(combatCorrAdata, n_comps=50, use_highly_variable=True, svd_solver='arp
 # sc.tl.tsne(combatCorrAdata, n_pcs = 50, n_jobs=16)
 sc.pp.neighbors(combatCorrAdata, random_state = 2105)
 sc.tl.umap(combatCorrAdata, random_state = 2105, n_components=3)
-# 2.9) Plot visualizations
+# Visualize 
 # PCA
 sc.pl.pca_scatter(combatCorrAdata, color='tissueID', components = ['1,2','2,3','3,4','4,5','5,6','6,7'], ncols=3, hspace=0.35, wspace=0.35, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.tight_layout()
+plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=75); plt.close('all')
 
 # 2D TSNE and UMAP
 # fig, axs = plt.subplots(2, 2, figsize=(16,8), constrained_layout=True)
@@ -407,22 +424,130 @@ plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_PCA.png".format(plotsDir, bname) 
 # w, h = figaspect(2.)
 # fig = Figure(figsize=(w, h))
 fig = plt.figure(figsize=(16,12))
-fig.suptitle('Raw and Normalized Combat Corrected UMAPS')
+# fig.suptitle('Raw and Normalized Combat Corrected UMAPS')
 # 2D projection
 ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(adata          , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
 ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="scran Normalized, Combat Batch Corrected UMAP")
 # 3D projection
 ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(adata          , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
 ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(combatCorrAdata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="scran Normalized, Combat Batch Corrected UMAP")
-plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+plt.tight_layout()
+plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# 4.2) Batch Correction using Scanorama
+adata2 = sc.AnnData(X=adata.X, var=adata.var, obs = adata.obs)
+
+#variable genes for the full dataset
+sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'batch')
+print("Highly variable genes intersection: %d"%sum(adata2.var.highly_variable_intersection))
+print("Number of batches where gene is variable:")
+print(adata2.var.highly_variable_nbatches.value_counts())
+var_genes_batch = adata2.var.highly_variable_nbatches > 0
+var_select = adata2.var.highly_variable_nbatches > 1
+var_genes = var_select.index[var_select]
+len(var_genes)
+
+# Split per batch into new objects.
+batches = ['0','1','2','3']
+alldata = {}
+for batch in batches:
+    alldata[batch] = adata2[adata2.obs['batch'] == batch,]
+
+# Subset the individual dataset to the same variable genes as in MNN-correct.
+alldata2 = dict()
+for ds in alldata.keys():
+    print(ds)
+    alldata2[ds] = alldata[ds][:,var_genes]
+
+# Convert to list of AnnData objects
+normAdatas = list(alldata2.values())
+
+# Run scanorama.integrate
+scanorama  = scanorama.integrate_scanpy(normAdatas, dimred = 50,)
+
+# Returns a list of 4 np.ndarrays with 50 columns.
+print(scanorama[0].shape)
+print(scanorama[1].shape)
+print(scanorama[2].shape)
+print(scanorama[3].shape)
+
+# Make into one matrix.
+all_s = np.concatenate(scanorama)
+print(all_s.shape)
+
+# Add to the AnnData object
+scanoramaCorrAdata = adata.copy()
+scanoramaCorrAdata.obsm["SC"] = all_s
+
+# Calculations for the visualizations
+sc.pp.highly_variable_genes(scanoramaCorrAdata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(scanoramaCorrAdata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(scanoramaCorrAdata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(scanoramaCorrAdata, random_state = 2105, n_components=3)
 
 
-# Highly variable gene information is stored automatically in the adata.var['highly_variable'] field. The dataset now contains:
-# a 'counts' layer with count data
-# log-normalized data in adata.raw
-# batch corrected data in adata.X
-# highly variable gene annotations in adata.var['highly_variable']
-# The HVG labels will be used to subselect genes for clustering and trajectory analysis.
+fig = plt.figure(figsize=(16,12))
+# 2D projection
+ax = fig.add_subplot(2, 8, 1);                  sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Combat UMAP")
+ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama UMAP")
+# 3D projection
+ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Combat UMAP")
+ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(scanoramaCorrAdata, ax=ax, color="batch", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama UMAP")
+plt.tight_layout()
+plt.savefig("{0}/03_norm_scanoramaBC_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+
+# 4.3) Perform batch correction with MNN
+mnnAlldata = alldata.copy()
+cdata = sc.external.pp.mnn_correct(mnnAlldata['0'],mnnAlldata['1'],mnnAlldata['2'],mnnAlldata['3'], svd_dim = 50, batch_key = 'batch', batch_categories = ['0','1','2','3'],save_raw = True, var_subset = var_genes)
+
+# The mnn_correct function returns a tuple with the AnnData object, list of cell pairs and of angles.Hence, cdata[0] is the new AnnData object.
+# We get corrected expression values for all genes even though only the selected genes were used for finding neighbor cells. For later analysis we want to do dimensionality reduction etc. on the variable genes only, so we will subset the data to only include the variable genes.
+corr_data = cdata[0][:,var_genes]
+corr_data.X.shape
+
+# The variable genes defined are used by default by the pca function, 
+# now we want to run on all the genes in the dataset
+sc.tl.pca(corr_data, svd_solver = 'arpack', use_highly_variable = False)
+sc.pp.neighbors(corr_data, random_state = 2105)
+sc.tl.umap(corr_data, random_state = 2105, n_components=3)
+
+fig = plt.figure(figsize=(24,8))
+# 2D projection
+ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 4, 2);                  sc.pl.umap(combatCorrAdata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Combat UMAP")
+ax = fig.add_subplot(2, 4, 3);                  sc.pl.umap(corr_data         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MNN UMAP")
+ax = fig.add_subplot(2, 4, 4);                  sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama UMAP")
+# 3D projection
+ax = fig.add_subplot(2, 4, 5, projection='3d'); sc.pl.umap(adata             , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 4, 6, projection='3d'); sc.pl.umap(combatCorrAdata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Combat UMAP")
+ax = fig.add_subplot(2, 4, 7, projection='3d'); sc.pl.umap(corr_data         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MNN UMAP")
+ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama UMAP")
+plt.tight_layout()
+plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # 7) Clustering
