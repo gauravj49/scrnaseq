@@ -14,7 +14,8 @@ import scanorama
 
 # For X11 display
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
 # Reset random state
@@ -526,29 +527,11 @@ ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(scanoramaCorrAdata, l
 plt.tight_layout()
 plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+############################################################
+############################################################
+# Using SCANORAMA for batch correction
+############################################################
+adata = scanoramaCorrAdata.copy()
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -563,6 +546,7 @@ for i in np.linspace(0.1,0.9,9):
         print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
     except:
         print("- Error in r: {0}".format(i))
+sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
 
 # Number of cells in each cluster
 # adata.obs['louvain_r1.5'].value_counts()                                                                                                                     # 0     821
@@ -588,42 +572,53 @@ for i in np.linspace(0.1,0.9,9):
 
 # Calculations for the visualizations
 sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-sc.pp.neighbors(adata)
+sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
 sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
-sc.pl.umap(adata, color=['louvain'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/03_normScanorama_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+fig = plt.figure(figsize=(24,8))
+# 2D projection
+ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="louvain_r0.5 UMAP")
+ax = fig.add_subplot(2, 4, 2);                  sc.pl.umap(adata   , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="tissueID UMAP")
+ax = fig.add_subplot(2, 4, 3);                  sc.pl.umap(adata         , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 4, 4);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+# 3D projection
+ax = fig.add_subplot(2, 4, 5, projection='3d'); sc.pl.umap(adata             , legend_loc=None, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="louvain_r0.5 UMAP")
+ax = fig.add_subplot(2, 4, 6, projection='3d'); sc.pl.umap(adata   , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="tissueID UMAP")
+ax = fig.add_subplot(2, 4, 7, projection='3d'); sc.pl.umap(adata         , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+plt.tight_layout()
+plt.savefig("{0}/03_normScanorama_{1}_louvain_tissueID_counts_mtfrac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_louvain_r15_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-sc.pl.umap(adata, color=['louvain_r1.5'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_louvain_r15_legend_onData_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Other UMAPs
-sc.pl.umap(adata, color=['tissueID'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.pca_scatter(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color='n_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_ncounts_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color=['log_counts', 'mt_frac'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_logCounts_mtFrac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# Louvain UMAPs
+# sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_10, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+# plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_10, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+# plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+# UMAPS
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('louvain_r0.5')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adata, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP_2D3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 7.2) Marker genes & cluster annotation
 # Calculate marker genes
-sc.tl.rank_genes_groups(adata, groupby='louvain_r1.5', key_added='rank_genes_r1.5')
+sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_r0.5')
 
 # Plot marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes_r1.5', fontsize=12, show=False)
-plt.savefig("{0}/03_normBC_{1}_louvain_r15_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', fontsize=12, show=False)
+plt.savefig("{0}/03_normScanorama_{1}_louvain_r05_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# Annotation of cluster r_1.5 with known marker genes
+# Annotation of cluster r_0.5 with known marker genes
 markerDir = "{0}/markerDir".format(plotsDir); create_dir(markerDir)
 
 # Read the marker genes into a pandas dataframe
@@ -643,16 +638,16 @@ ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(
 for k in marker_genes.keys():
   ids = np.in1d(adata.var_names, marker_genes[k])
   adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  sc.pl.umap(adata, color=['louvain_r1.5','{0}_marker_expr'.format(k)], color_map=mymap, show=False)
-  plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
+  sc.pl.umap(adata, color=['louvain_r0.5','{0}_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+  plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs_3D.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Generate the UMAPs for each marker categories
 plt.figure(figsize=(100,8))
 for k in ma_marker_genes.keys():
   ids = np.in1d(adata.var_names, ma_marker_genes[k])
   adata.obs['{0}_ma_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  sc.pl.umap(adata, color=['louvain_r1.5','{0}_ma_marker_expr'.format(k)], color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-  plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
+  sc.pl.umap(adata, color=['louvain_r0.5','{0}_ma_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+  plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs_3D.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # --------------------------------------------------------
 # Plot UMAP for all the tumor cells 
@@ -675,66 +670,75 @@ for e in mylist:
   humaniresmyc.append(flag)
 
 adata.obs['hgMycIresCd2'] = humaniresmyc
-sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+# plt.savefig("{0}/03_normScanorama_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('hgMycIresCd2')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/03_normScanorama_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# --------------------------------------------------------
-# Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
-# Unique cell barcode list of list
-ucblofl = list()
-ucbd    = defaultdict(list)
-for t in ['humanMyc', 'gap', 'ires', 'humanCd2']:
-  # Cell barcode data frame
-  cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_{0}_cellIDs.txt'.format(t), sep="\t", header=None).values.tolist()
+# # --------------------------------------------------------
+# # Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
+# # Unique cell barcode list of list
+# ucblofl = list()
+# ucbd    = defaultdict(list)
+# for t in ['humanMyc', 'gap', 'ires', 'humanCd2']:
+#   # Cell barcode data frame
+#   cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_{0}_cellIDs.txt'.format(t), sep="\t", header=None).values.tolist()
 
-  # Unique cell barcode list
-  ucbl = get_unique_list(sum(cbDF, []))
-  ucbd[t] = ucbl
-  ucblofl.append(ucbl)
+#   # Unique cell barcode list
+#   ucbl = get_unique_list(sum(cbDF, []))
+#   ucbd[t] = ucbl
+#   ucblofl.append(ucbl)
 
-import upsetplot
-from upsetplot import from_memberships, from_contents
-upsetContent = from_contents(ucbd)
-memberships  = from_memberships(ucblofl)
+# import upsetplot
+# from upsetplot import from_memberships, from_contents
+# upsetContent = from_contents(ucbd)
+# memberships  = from_memberships(ucblofl)
 
-fig = plt.figure(figsize=(15,5), dpi=175)
-upsetplot.plot(upsetContent, sum_over=False,show_counts='%d', fig=fig)
-plt.savefig("{0}/03_normBC_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# fig = plt.figure(figsize=(15,5), dpi=175)
+# upsetplot.plot(upsetContent, sum_over=False,show_counts='%d', fig=fig)
+# plt.savefig("{0}/03_normScanorama_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# Plot only selected groups
-upcDF        = upsetContent.query('humanMyc == True and gap == False and ires == False and humanCd2 == False')
-cellBarCodes = upcDF.values.tolist()
-upcDF        = upsetContent.query('humanMyc == False and gap == True and ires == False and humanCd2 == False')
-cellBarCodes = upcDF.values.tolist()
-upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == True and humanCd2 == False')
-cellBarCodes = upcDF.values.tolist()
-upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == False and humanCd2 == True')
-cellBarCodes = upcDF.values.tolist()
+# # Plot only selected groups
+# upcDF        = upsetContent.query('humanMyc == True and gap == False and ires == False and humanCd2 == False')
+# cellBarCodes = upcDF.values.tolist()
+# upcDF        = upsetContent.query('humanMyc == False and gap == True and ires == False and humanCd2 == False')
+# cellBarCodes = upcDF.values.tolist()
+# upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == True and humanCd2 == False')
+# cellBarCodes = upcDF.values.tolist()
+# upcDF        = upsetContent.query('humanMyc == False and gap == False and ires == False and humanCd2 == True')
+# cellBarCodes = upcDF.values.tolist()
 
-cl  = sum(cellBarCodes, [])
-ucl = get_unique_list(cl)
-# In [34]: len(ucl)
-# Out[34]: 1743
+# cl  = sum(cellBarCodes, [])
+# ucl = get_unique_list(cl)
+# # In [34]: len(ucl)
+# # Out[34]: 1743
 
-mylist = adata.obs.index.values
-humaniresmyc = list()
-for e in mylist: 
-  flag = 0
-  for s in ucl: 
-      if s in e: 
-          flag = 1 
-          break
-  humaniresmyc.append(flag)
+# mylist = adata.obs.index.values
+# humaniresmyc = list()
+# for e in mylist: 
+#   flag = 0
+#   for s in ucl: 
+#       if s in e: 
+#           flag = 1 
+#           break
+#   humaniresmyc.append(flag)
 
-adata.obs['hgMycIresCd2'] = humaniresmyc
-sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
+# adata.obs['hgMycIresCd2'] = humaniresmyc
+# sc.pl.umap(adata, color='hgMycIresCd2', use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9)
 
 #---------------------------------------------------------------------
 # Categories to rename
-adata.obs['louvain_r1.5'].cat.categories
+adata.obs['louvain_r0.5'].cat.categories
 
-# Get a new cell type column from the annotation of the louvain_r1.5 clusters
-adata.obs['cellType'] = adata.obs['louvain_r1.5']
+# Get a new cell type column from the annotation of the louvain_r0.5 clusters
+adata.obs['cellType'] = adata.obs['louvain_r0.5']
 
 # Add new categories
 adata.obs['cellType'].cat.add_categories(['Birc5⁺/basal', 'Tcells', 'Dendritic', 'Macrophages','Endothelial', 'Endothelial/Epithelial_Igfbp3⁺', 'Erythrocytes', 'Fibroblasts','Restin_like_gamma', 'Tumor', 'Pit_cells', 'Parietal', 'Pancreas'], inplace=True) 
@@ -776,14 +780,14 @@ adata.obs['cellType'].cat.categories
 
 # Draw Umaps with the categories
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_cellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/03_normBC_{1}_clustering_cellType_legend_onData_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_legend_onData_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 plt.figure(figsize=(50,50))
 sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False,zorder=0)
-plt.savefig("{0}/03_normBC_{1}_clustering_cellType_legend_onData_UMAP.jpg".format(plotsDir, bname) , bbox_inches='tight', dpi=600, rasterized=True, edgecolor='white'); plt.close('all')
+plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_legend_onData_UMAP.jpg".format(plotsDir, bname) , bbox_inches='tight', dpi=600, rasterized=True, edgecolor='white'); plt.close('all')
 
 # Plot Final Marker genes
 # Calculate marker genes
@@ -793,29 +797,29 @@ sc.pl.rank_genes_groups(adata, key='rank_genes_cellType', fontsize=12, show=Fals
 plt.savefig("{0}/{1}_cellType_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Erythrocytes
-sc.pl.umap(adata, color=['cellType','Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Erythrocytes') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Restin
-sc.pl.umap(adata, color=['cellType','Retnlg','S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Retnlg','S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Restin') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Tcells
-sc.pl.umap(adata, color=['cellType','Sh2d1a','Cd3d','Cd3e','Cd8a'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Sh2d1a','Cd3d','Cd3e','Cd8a'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Tcells') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Endothelial/Epithelial_Igfbp3⁺
-sc.pl.umap(adata, color=['cellType','Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial_Epithelial_Igfbp3pos') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Endothelial
-sc.pl.umap(adata, color=['cellType','Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Pancreas (Identified from louvain_r15_marker_genes_ranking)
 # This particular plot is providing no useful information
 # Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
-sc.pl.umap(adata, color=['cellType','Rps24','Rps11','Rps3','Rpl23','Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, show=False, alpha=0.9)
+sc.pl.umap(adata, color=['cellType','Rps24','Rps11','Rps3','Rpl23','Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Save the cellType information in external file
