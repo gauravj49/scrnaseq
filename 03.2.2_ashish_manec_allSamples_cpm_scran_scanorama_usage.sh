@@ -75,7 +75,7 @@ dataDir         = "{0}/data".format(output_dir); create_dir(dataDir)
 
 # Define a nice colour map for gene expression
 colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
-colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,20))
+colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,5))
 colorsComb = np.vstack([colors3, colors2])
 mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
 
@@ -469,21 +469,12 @@ ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(scranscanoramaadata,
 plt.tight_layout()
 plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-
-
-
-
-
-
-
-
-
-
 ############################################################
 ############################################################
 # Using SCANORAMA for batch correction
 ############################################################
-adata = scanoramaCorrAdata.copy()
+rawadata = adata.copy()
+adata = scranscanoramaadata.copy()
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -499,6 +490,7 @@ for i in np.linspace(0.1,0.9,9):
     except:
         print("- Error in r: {0}".format(i))
 sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
 
 # Number of cells in each cluster
 # adata.obs['louvain_r1.5'].value_counts()                                                                                                                     # 0     821
@@ -529,8 +521,10 @@ sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
-sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/03_normScanorama_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_normScanorama_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 fig = plt.figure(figsize=(24,8))
 # 2D projection
@@ -601,6 +595,49 @@ for k in ma_marker_genes.keys():
   sc.pl.umap(adata, color=['louvain_r0.5','{0}_ma_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
   plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs_3D.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
 
+# Plot Final Marker genes
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_louvain_r0.5')
+# Plot marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes_louvain_r0.5', fontsize=12, show=False)
+plt.savefig("{0}/{1}_louvain_r0.5_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Erythrocytes
+sc.pl.umap(adata, color=['louvain_r0.5','Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Erythrocytes') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Restin
+sc.pl.umap(adata, color=['louvain_r0.5','Retnlg','S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Restin') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Tcells
+sc.pl.umap(adata, color=['louvain_r0.5','Sh2d1a','Cd3d','Cd3e','Cd8a'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Tcells') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Endothelial/Epithelial_Igfbp3⁺
+sc.pl.umap(adata, color=['louvain_r0.5','Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial_Epithelial_Igfbp3pos') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Endothelial
+sc.pl.umap(adata, color=['louvain_r0.5','Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Pancreas (Identified from louvain_r15_marker_genes_ranking)
+# This particular plot is providing no useful information
+# Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
+sc.pl.umap(adata, color=['louvain_r0.5','Rps24','Rps11','Rps3','Rpl23','Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Save the louvain_r0.5 information in external file
+louvain_r0.5sDF = pd.DataFrame(adata.obs['louvain_r0.5'])
+louvain_r0.5sDF.to_csv("{0}/03_{1}_louvain_r0.5s.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
+
+
+
+
+
+# Finished on 2020-04Apr-14
+#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # --------------------------------------------------------
 # Plot UMAP for all the tumor cells 
 # Color the cells that have human myc and ires
@@ -786,7 +823,10 @@ filename = "{0}/{1}.pkl".format(output_dir, projName)
 dill.dump_session(filename)
 
 
-
+# and to load the session again:
+import dill
+filename = "{0}/{1}.pkl".format(output_dir, projName)
+dill.load_session(filename)
 
 
 
