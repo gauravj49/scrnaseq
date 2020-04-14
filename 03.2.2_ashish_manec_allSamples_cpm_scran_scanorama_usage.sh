@@ -62,10 +62,10 @@ projName        = "alltissues_except1079" # MANEC_merged_except1079_hMYC_forcece
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
-minGenesPerCell = 100
-minCountPerCell = 300
+minGenesPerCell = 10
+minCountPerCell = 100
 maxCountPerCell = 50000 
-minCellsPergene = 25
+minCellsPergene = 3
 mtGenesFilter   = 0.25
 rbGenesFilter   = 0.15
 bname           = projName
@@ -83,9 +83,9 @@ mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
 sc.logging.print_memory_usage()
 sc.logging.print_version_and_date()
 sc.logging.print_versions()
-# Memory usage: current 0.86 GB, difference +0.86 GB
-# Running Scanpy 1.4.5.1, on 2020-03-17 21:44.
-# scanpy==1.4.5.1 anndata==0.7.1 umap==0.3.10 numpy==1.17.3 scipy==1.3.1 pandas==0.25.3 scikit-learn==0.21.3 statsmodels==0.10.1 python-igraph==0.7.1 louvain==0.6.1
+# Memory usage: current 0.89 GB, difference +0.89 GB
+# Running Scanpy 1.4.5.1, on 2020-04-14 01:28.
+# scanpy==1.4.5.1 anndata==0.7.1 umap==0.3.10 numpy==1.17.3 scipy==1.4.1 pandas==1.0.3 scikit-learn==0.21.3 statsmodels==0.10.1 python-igraph==0.7.1 louvain==0.6.1
 
 # 1) Reading and performing QC on individual datasets
 
@@ -202,7 +202,7 @@ for i, adata in enumerate(adatas):
 
     # 1.2.8) Compute variable genes
     # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
-    sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=3500)
+    sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
     print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
 
     # 1.2.9) Calculations for the visualizations
@@ -275,20 +275,19 @@ sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
 print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
 
 # Total number of cells: 5887
-# Number of cells after min count filter: 5874
-# Number of cells after max count filter: 5873
-# Number of cells after MT filter: 5873
-# Trying to set attribute `.obs` of view, making a copy.
-# Number of cells after gene filter: 5868
+# Number of cells after min count filter: 5887
+# Number of cells after max count filter: 5885
+# Number of cells after gene filter: 5885
+# Total number of genes: 12352
+# Number of genes after cell filter: 12352
 
 # 2.6) Filter genes according to identified QC thresholds:
 # Min 5 cells - filters out 0 count genes
 print('Total number of genes: {:d}'.format(adata.n_vars))
 sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
-
-# Total number of genes: 6068
-# Number of genes after cell filter: 6068
+# Total number of genes: 12352
+# Number of genes after cell filter: 12352
 
 # 2.7) Compute highly variable genes (HVGs)
 # Next, we first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
@@ -296,13 +295,13 @@ sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000, batch
 print("Highly variable genes intersection: %d"%sum(adata.var.highly_variable_intersection))
 print("Number of batches where gene is variable:")
 print(adata.var.highly_variable_nbatches.value_counts())
-# Highly variable genes intersection: 1495
+# Highly variable genes intersection: 976
 # Number of batches where gene is variable:
-# 3    1998
-# 2    1601
-# 4    1495
-# 1     816
-# 0     158
+# 0    4075
+# 1    3781
+# 2    2232
+# 3    1288
+# 4     976
 # Name: highly_variable_nbatches, dtype: int64
 
 # Calculations for the visualizations
@@ -327,205 +326,158 @@ sc.pl.umap(adata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=
 plt.savefig("{0}/01_raw_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ########################
-# 3) # Normalization using SCRAN
-# This method requires a coarse clustering input to improve size factor esimation performance. 
-# Thus, we use a simple preprocessing approach and cluster the data at a low resolution to get an 
-# input for the size factor estimation. The basic preprocessing includes assuming all size factors 
-# are equal (library size normalization to counts per million - CPM) and log-transforming the count data.
+# Normalization using CPM
+# Total-count normalize (library-size correct) the data matrix X to 10,000 reads per cell, so that counts become comparable among cells
+cpmadata = adata.copy()
+sc.pp.normalize_total(cpmadata, target_sum=1e4)
+sc.pp.log1p(cpmadata) # Logarithmize the data.
+cpmadata.raw = cpmadata
 
+# 3) # Normalization using SCRAN
+scranadata = adata.copy()
 # Perform a clustering for scran normalization in clusters
-adata_pp = adata.copy()
+adata_pp = scranadata.copy()
 sc.pp.normalize_per_cell(adata_pp, counts_per_cell_after=1e6)
 sc.pp.log1p(adata_pp)
 sc.pp.pca(adata_pp, n_comps=15)
 sc.pp.neighbors(adata_pp)
 sc.tl.louvain(adata_pp, key_added='groups', resolution=0.5)
-
 # Preprocess variables for scran normalization
 input_groups = adata_pp.obs['groups']
-data_mat = adata.X.T
-
+data_mat = scranadata.X.T
 # Run scran in R
 %%R -i data_mat -i input_groups -o size_factors
 size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.1)
-
 # Delete adata_pp
 del adata_pp
-
 # Visualize the estimated size factors
-adata.obs['size_factors'] = size_factors
+scranadata.obs['size_factors'] = size_factors
 fig = plt.figure(figsize=(16,6))
 fig.suptitle('Estimated size factors')
 ax = fig.add_subplot(1, 2, 1)
-sc.pl.scatter(adata, 'size_factors', 'n_counts', ax=ax, show=False)
+sc.pl.scatter(scranadata, 'size_factors', 'n_counts', ax=ax, show=False)
 ax = fig.add_subplot(1, 2, 2)
-sc.pl.scatter(adata, 'size_factors', 'n_genes', ax=ax, show=False)
+sc.pl.scatter(scranadata, 'size_factors', 'n_genes', ax=ax, show=False)
 plt.tight_layout()
 plt.savefig("{0}/02_norm_{1}_scran_sizefactors_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
 # Keep the count data in a counts layer
-adata.layers["counts"] = adata.X.copy()
-
+scranadata.layers["counts"] = scranadata.X.copy()
 # Normalize adata 
-adata.X /= adata.obs['size_factors'].values[:,None]
-sc.pp.log1p(adata)
-
+scranadata.X /= scranadata.obs['size_factors'].values[:,None]
+sc.pp.log1p(scranadata)
 # Store the full data set in 'raw' as log-normalised data for statistical testing
-adata.raw = adata
+scranadata.raw = scranadata
 
 # 4) Biological correction
 # 4.1) Read cell cycle genes
 cc_genes         = pd.read_table(ccGenes_macosko, delimiter='\t')
 s_genes          = cc_genes['S'].dropna()
 g2m_genes        = cc_genes['G2.M'].dropna()
-
 # For mouse only
 s_genes_mm       = [gene.lower().capitalize() for gene in s_genes]
 g2m_genes_mm     = [gene.lower().capitalize() for gene in g2m_genes]
-s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
-g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
+
+# CPM 
+s_genes_mm_ens   = cpmadata.var_names[np.in1d(cpmadata.var_names, s_genes_mm)]
+g2m_genes_mm_ens = cpmadata.var_names[np.in1d(cpmadata.var_names, g2m_genes_mm)]
+# SCRAN
+s_genes_mm_ens   = scranadata.var_names[np.in1d(scranadata.var_names, s_genes_mm)]
+g2m_genes_mm_ens = scranadata.var_names[np.in1d(scranadata.var_names, g2m_genes_mm)]
 
 # 4.2) Score cell cycle genes
-sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
+sc.tl.score_genes_cell_cycle(cpmadata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
+sc.tl.score_genes_cell_cycle(scranadata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 
 # 4.3) Visualize the effects of cell cycle
 fig = plt.figure(figsize=(16,12))
 fig.suptitle('Effects of Cell Cycle')
 ax = fig.add_subplot(2, 2, 1)
-sc.pl.umap(adata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(scranadata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 ax = fig.add_subplot(2, 2, 2)
-sc.pl.umap(adata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(scranadata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 ax = fig.add_subplot(2, 2, 3)
-sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(scranadata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 ax = fig.add_subplot(2, 2, 4, projection='3d')
-sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+sc.pl.umap(scranadata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.tight_layout()
-plt.savefig("{0}/02_norm_{1}_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
+plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
 
 # 4) Technical correction
 # 4.1) Batch Correction using Combat
-combatCorrAdata = adata.copy()
-sc.pp.combat(combatCorrAdata, key='tissueID')
-
-# Calculations for the visualizations
-sc.pp.highly_variable_genes(combatCorrAdata, flavor='cell_ranger', n_top_genes=4000)
-sc.pp.pca(combatCorrAdata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
-# sc.tl.tsne(combatCorrAdata, n_pcs = 50, n_jobs=16)
-sc.pp.neighbors(combatCorrAdata, random_state = 2105)
-sc.tl.umap(combatCorrAdata, random_state = 2105, n_components=3)
-# Visualize 
-# PCA
-sc.pl.pca_scatter(combatCorrAdata, color='tissueID', components = ['1,2','2,3','3,4','4,5','5,6','6,7'], ncols=3, hspace=0.35, wspace=0.35, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.tight_layout()
-plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=75); plt.close('all')
-
-# 2D TSNE and UMAP
-# fig, axs = plt.subplots(2, 2, figsize=(16,8), constrained_layout=True)
-# Set up a figure twice as wide as it is tall
-# w, h = figaspect(2.)
-# fig = Figure(figsize=(w, h))
-fig = plt.figure(figsize=(16,12))
-# fig.suptitle('Raw and Normalized Combat Corrected UMAPS')
-# 2D projection
-ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(adata          , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="scran Normalized, Combat Batch Corrected UMAP")
-# 3D projection
-ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(adata          , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(combatCorrAdata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="scran Normalized, Combat Batch Corrected UMAP")
-plt.tight_layout()
-plt.savefig("{0}/03_norm_combatBC_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+# CPM
+cpmcombatadata = cpmadata.copy()
+sc.pp.combat(cpmcombatadata, key='tissueID')
+sc.pp.highly_variable_genes(cpmcombatadata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(cpmcombatadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(cpmcombatadata, random_state = 2105)
+sc.tl.umap(cpmcombatadata, random_state = 2105, n_components=3)
+#SCRAN
+scrancombatadata = scranadata.copy()
+sc.pp.combat(scrancombatadata, key='tissueID')
+sc.pp.highly_variable_genes(scrancombatadata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(scrancombatadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(scrancombatadata, random_state = 2105)
+sc.tl.umap(scrancombatadata, random_state = 2105, n_components=3)
 
 # 4.2) Batch Correction using Scanorama
-adata2 = sc.AnnData(X=adata.X, var=adata.var, obs = adata.obs)
-
+scranadata2 = sc.AnnData(X=scranadata.X, var=scranadata.var, obs = scranadata.obs)
 #variable genes for the full dataset
-sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'batch')
-print("Highly variable genes intersection: %d"%sum(adata2.var.highly_variable_intersection))
-print("Number of batches where gene is variable:")
-print(adata2.var.highly_variable_nbatches.value_counts())
-var_genes_batch = adata2.var.highly_variable_nbatches > 0
-var_select = adata2.var.highly_variable_nbatches > 1
+sc.pp.highly_variable_genes(scranadata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'batch')
+var_genes_batch = scranadata2.var.highly_variable_nbatches > 0
+var_select = scranadata2.var.highly_variable_nbatches > 1
 var_genes = var_select.index[var_select]
-len(var_genes)
-
 # Split per batch into new objects.
 batches = ['0','1','2','3']
-alldata = {}
+scranalldata = {}
 for batch in batches:
-    alldata[batch] = adata2[adata2.obs['batch'] == batch,]
-
+    scranalldata[batch] = scranadata2[scranadata2.obs['batch'] == batch,]
 # Subset the individual dataset to the same variable genes as in MNN-correct.
-alldata2 = dict()
-for ds in alldata.keys():
+scranalldata2 = dict()
+for ds in scranalldata.keys():
     print(ds)
-    alldata2[ds] = alldata[ds][:,var_genes]
-
+    scranalldata2[ds] = scranalldata[ds][:,var_genes]
 # Convert to list of AnnData objects
-normAdatas = list(alldata2.values())
-
+comnormadatas = list(scranalldata2.values())
 # Run scanorama.integrate
-scanorama  = scanorama.integrate_scanpy(normAdatas, dimred = 50,)
-
-# Returns a list of 4 np.ndarrays with 50 columns.
-print(scanorama[0].shape)
-print(scanorama[1].shape)
-print(scanorama[2].shape)
-print(scanorama[3].shape)
-
+scranscanorama  = scanorama.integrate_scanpy(comnormadatas, dimred = 50,)
 # Make into one matrix.
-all_s = np.concatenate(scanorama)
-print(all_s.shape)
-
+scranall_s = np.concatenate(scranscanorama)
+print(scranall_s.shape)
 # Add to the AnnData object
-scanoramaCorrAdata = adata.copy()
-scanoramaCorrAdata.obsm["SC"] = all_s
+scranscanoramaadata = adata.copy()
+scranscanoramaadata.obsm["SC"] = scranall_s
 
 # Calculations for the visualizations
-sc.pp.highly_variable_genes(scanoramaCorrAdata, flavor='cell_ranger', n_top_genes=4000)
-sc.pp.pca(scanoramaCorrAdata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
-sc.pp.neighbors(scanoramaCorrAdata, random_state = 2105, use_rep = "SC")
-sc.tl.umap(scanoramaCorrAdata, random_state = 2105, n_components=3)
+sc.pp.highly_variable_genes(scranscanoramaadata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(scranscanoramaadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(scranscanoramaadata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(scranscanoramaadata, random_state = 2105, n_components=3)
 
-
-fig = plt.figure(figsize=(16,12))
+fig = plt.figure(figsize=(32,8))
 # 2D projection
-ax = fig.add_subplot(2, 8, 1);                  sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Combat UMAP")
-ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama UMAP")
+ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 5, 2);                  sc.pl.umap(cpmcombatadata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="CPM Combat UMAP")
+ax = fig.add_subplot(2, 5, 3);                  sc.pl.umap(scrancombatadata         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scran Combat UMAP")
+ax = fig.add_subplot(2, 5, 4);                  sc.pl.umap(cpmscanoramaadata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="CPM Scanorama UMAP")
+ax = fig.add_subplot(2, 5, 5);                  sc.pl.umap(scranscanoramaadata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scran Scanorama UMAP")
 # 3D projection
-ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(combatCorrAdata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Combat UMAP")
-ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(scanoramaCorrAdata, ax=ax, color="batch", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama UMAP")
-plt.tight_layout()
-plt.savefig("{0}/03_norm_scanoramaBC_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
-
-
-# 4.3) Perform batch correction with MNN
-mnnAlldata = alldata.copy()
-cdata = sc.external.pp.mnn_correct(mnnAlldata['0'],mnnAlldata['1'],mnnAlldata['2'],mnnAlldata['3'], svd_dim = 50, batch_key = 'batch', batch_categories = ['0','1','2','3'],save_raw = True, var_subset = var_genes)
-
-# The mnn_correct function returns a tuple with the AnnData object, list of cell pairs and of angles.Hence, cdata[0] is the new AnnData object.
-# We get corrected expression values for all genes even though only the selected genes were used for finding neighbor cells. For later analysis we want to do dimensionality reduction etc. on the variable genes only, so we will subset the data to only include the variable genes.
-corr_data = cdata[0][:,var_genes]
-corr_data.X.shape
-
-# The variable genes defined are used by default by the pca function, 
-# now we want to run on all the genes in the dataset
-sc.tl.pca(corr_data, svd_solver = 'arpack', use_highly_variable = False)
-sc.pp.neighbors(corr_data, random_state = 2105)
-sc.tl.umap(corr_data, random_state = 2105, n_components=3)
-
-fig = plt.figure(figsize=(24,8))
-# 2D projection
-ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 4, 2);                  sc.pl.umap(combatCorrAdata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Combat UMAP")
-ax = fig.add_subplot(2, 4, 3);                  sc.pl.umap(corr_data         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MNN UMAP")
-ax = fig.add_subplot(2, 4, 4);                  sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama UMAP")
-# 3D projection
-ax = fig.add_subplot(2, 4, 5, projection='3d'); sc.pl.umap(adata             , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 4, 6, projection='3d'); sc.pl.umap(combatCorrAdata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Combat UMAP")
-ax = fig.add_subplot(2, 4, 7, projection='3d'); sc.pl.umap(corr_data         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MNN UMAP")
-ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama UMAP")
+ax = fig.add_subplot(2, 5, 6, projection='3d'); sc.pl.umap(adata             , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 5, 7, projection='3d'); sc.pl.umap(cpmcombatadata   , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="CPM Combat UMAP")
+ax = fig.add_subplot(2, 5, 8, projection='3d'); sc.pl.umap(scrancombatadata         , legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scran Combat UMAP")
+ax = fig.add_subplot(2, 5, 9, projection='3d'); sc.pl.umap(cpmscanoramaadata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="CPM Scanorama UMAP")
+ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(scranscanoramaadata, legend_loc=None, ax=ax, color="batch"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scran Scanorama UMAP")
 plt.tight_layout()
 plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+
+
+
+
+
+
+
+
+
 
 ############################################################
 ############################################################
