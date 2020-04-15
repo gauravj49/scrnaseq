@@ -63,10 +63,10 @@ projName        = "alltissues_except1079" # MANEC_merged_except1079_hMYC_forcece
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
-minGenesPerCell = 50
-minCountPerCell = 100
+minGenesPerCell = 100
+minCountPerCell = 300
 maxCountPerCell = 50000 
-minCellsPergene = 25
+minCellsPergene = 75      # Approx 10% of all cells
 mtGenesFilter   = 0.25
 rbGenesFilter   = 0.15
 bname           = projName
@@ -84,7 +84,7 @@ sc.logging.print_memory_usage()
 sc.logging.print_version_and_date()
 sc.logging.print_versions()
 # Memory usage: current 0.89 GB, difference +0.89 GB
-# Running Scanpy 1.4.5.1, on 2020-04-14 22:53.
+# Running Scanpy 1.4.5.1, on 2020-04-15 12:33.
 # scanpy==1.4.5.1 anndata==0.7.1 umap==0.3.10 numpy==1.17.3 scipy==1.4.1 pandas==1.0.3 scikit-learn==0.21.3 statsmodels==0.10.1 python-igraph==0.7.1 louvain==0.6.1
 
 # 1) Reading and performing QC on individual datasets
@@ -117,10 +117,10 @@ tissueIdDict =  {
 fadatas = list()
 
 # 1.2) Make the variable names unique for each annData object separately and calculate some general qc-stats for genes and cells
-minGenesPerCell = 5
-minCountPerCell = 25
+minGenesPerCell = 50
+minCountPerCell = 150
 maxCountPerCell = 50000 
-minCellsPergene = 5
+minCellsPergene = 25
 for i, adata in enumerate(adatas):
     tid = tissueIdDict[str(i)]
     print("########################################")
@@ -242,10 +242,10 @@ adata.obs['tissueID'] = adata.obs['batch'].map(tissueIdDict)
 adata.shape # We have 5887 cells and 6068 genes in the dataset
 
 # Reset the parameters for merged data
-minGenesPerCell = 50
-minCountPerCell = 100
+minGenesPerCell = 100
+minCountPerCell = 300
 maxCountPerCell = 50000 
-minCellsPergene = 25
+minCellsPergene = 75      # Approx 10% of all cells
 
 # 2) Plot QC matrices for raw filtered merged data
 # 2.1) Plot sample QC metrics for merged data
@@ -285,17 +285,17 @@ sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
 print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
 
 # Total number of cells: 5887
-# Number of cells after min count filter: 5887
-# Number of cells after max count filter: 5885
-# Number of cells after gene filter: 5885
+# Number of cells after min count filter: 5874
+# Number of cells after max count filter: 5873
+# Number of cells after gene filter: 5868
 
 # 2.6) Filter genes according to identified QC thresholds:
-# Min 5 cells - filters out 0 count genes
+# Min minCellsPergene cells - filters out 0 count genes
 print('Total number of genes: {:d}'.format(adata.n_vars))
 sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
-# Number of genes after cell filter: 11023
-# Highly variable genes intersection: 983
+# Total number of genes: 6068
+# Number of genes after cell filter: 6068
 
 # 2.7) Compute highly variable genes (HVGs)
 # Next, we first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
@@ -303,13 +303,13 @@ sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000, batch
 print("Highly variable genes intersection: %d"%sum(adata.var.highly_variable_intersection))
 print("Number of batches where gene is variable:")
 print(adata.var.highly_variable_nbatches.value_counts())
-# Highly variable genes intersection: 983
+# Highly variable genes intersection: 1495
 # Number of batches where gene is variable:
-# 1    3460
-# 0    2978
-# 2    2200
-# 3    1402
-# 4     983
+# 3    1998
+# 2    1601
+# 4    1495
+# 1     816
+# 0     158
 # Name: highly_variable_nbatches, dtype: int64
 
 # Calculations for the visualizations
@@ -403,18 +403,18 @@ rawadatas = adatas.copy()
 
 # 5) Technical correction: Batch Correction using Scanorama
 # 5.1) Detect variable genes
-# # As the stored AnnData object contains scaled data based on variable genes, we need to make a new object with the raw counts and normalized it again. Variable gene selection should not be performed on the scaled data object, only do normalization and log transformation before variable genes selection.
-# adata2 = sc.AnnData(X=adata.raw.X, var=adata.raw.var, obs = adata.obs)
-# sc.pp.normalize_per_cell(adata2, counts_per_cell_after=1e4)
-# sc.pp.log1p(adata2)
+# As the stored AnnData object contains scaled data based on variable genes, we need to make a new object with the raw counts and normalized it again. Variable gene selection should not be performed on the scaled data object, only do normalization and log transformation before variable genes selection.
+adata2 = sc.AnnData(X=adata.raw.X, var=adata.raw.var, obs = adata.obs)
+sc.pp.normalize_per_cell(adata2, counts_per_cell_after=1e4)
+sc.pp.log1p(adata2)
 
-adata2 = normadata.copy()
+# adata2 = normadata.copy()
 
 # Detect variable genes for the full dataset
 sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5)
 print("Highly variable genes: %d"%sum(adata2.var.highly_variable))
 var_genes_all = adata2.var.highly_variable
-# Highly variable genes: 2384
+# Highly variable genes: 1765
 
 # Detect variable genes in each dataset separately using the batch_key parameter.
 sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'tissueID')
@@ -424,6 +424,11 @@ print("All data var genes: %d"%sum(var_genes_all))
 print("Overlap: %d"%sum(var_genes_batch & var_genes_all))
 print("Variable genes in all batches: %d"%sum(adata2.var.highly_variable_nbatches ==3))
 print("Overlap batch instersection and all: %d"%sum(var_genes_all & adata2.var.highly_variable_intersection))
+# Any batch var genes: 3960
+# All data var genes: 0
+# Overlap: 0
+# Variable genes in all batches: 559
+# Overlap batch instersection and all: 0
 
 # Select all genes that are variable in at least 2 datasets and use for remaining analysis.
 var_select = adata2.var.highly_variable_nbatches > 2
@@ -447,20 +452,25 @@ adatas = list(alldata2.values())
 
 # Run scanorama.integrate
 scanorama  = scanorama.integrate_scanpy(adatas, dimred = 50,)
+# Found 687 genes among all datasets
+# [[0.         0.61816305 0.45717234 0.68589744]
+#  [0.         0.         0.73383459 0.48589744]
+#  [0.         0.         0.         0.77744361]
+#  [0.         0.         0.         0.        ]]
 
 # Returns a list of 4 np.ndarrays with 50 columns.
 print(scanorama[0].shape)
 print(scanorama[1].shape)
 print(scanorama[2].shape)
 print(scanorama[3].shape)
-# (971, 50)
-# (3462, 50)
-# (671, 50)
-# (781, 50)
+# (969, 50)
+# (3454, 50)
+# (665, 50)
+# (780, 50)
 
 # Make into one matrix.
 all_s = np.concatenate(scanorama)
-print(all_s.shape) # (5885, 50)
+print(all_s.shape) # (5868, 50)
 
 # Add to the AnnData object
 adata.obsm["SC"] = all_s
@@ -526,8 +536,8 @@ sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105
 
 # Calculations for the visualizations
 # sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
-sc.tl.umap(adata, random_state = 2105, n_components=3)
+# sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
+# sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
@@ -637,12 +647,6 @@ plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".f
 louvainsDF = pd.DataFrame(adata.obs['louvain'])
 louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
 
-
-
-
-
-# Finished on 2020-04Apr-14
-#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # --------------------------------------------------------
 # Plot UMAP for all the tumor cells 
 # Color the cells that have human myc and ires
@@ -670,11 +674,14 @@ fig = plt.figure(figsize=(16,6))
 fig.suptitle('hgMycIresCd2')
 # 2D projection
 ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
 # 3D projection
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normScanorama_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Finished on 2020-04Apr-15 11:51 am
+#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # # --------------------------------------------------------
 # # Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
