@@ -17,7 +17,7 @@ import matplotlib
 # matplotlib.use('TkAgg')
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-
+from mpl_toolkits.mplot3d import Axes3D
 
 # Reset random state
 np.random.seed(2105)
@@ -63,19 +63,20 @@ projName        = "alltissues_except1079" # MANEC_merged_except1079_hMYC_forcece
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
-minGenesPerCell = 25
+minGenesPerCell = 150
 minCountPerCell = 150
 maxCountPerCell = 50000 
-minCellsPergene = 25
+minCellsPergene = 150
 mtGenesFilter   = 0.25
 rbGenesFilter   = 0.15
 bname           = projName
 plotsDir        = "{0}/plots".format(output_dir); create_dir(plotsDir)
 dataDir         = "{0}/data".format(output_dir); create_dir(dataDir)
 
+
 # Define a nice colour map for gene expression
 colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
-colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,20))
+colors3 = plt.cm.Greys_r(np.linspace(0.7,0.8,5))
 colorsComb = np.vstack([colors3, colors2])
 mymap = colors.LinearSegmentedColormap.from_list('my_colormap', colorsComb)
 
@@ -84,12 +85,12 @@ sc.logging.print_memory_usage()
 sc.logging.print_version_and_date()
 sc.logging.print_versions()
 # Memory usage: current 0.89 GB, difference +0.89 GB
-# Running Scanpy 1.4.5.1, on 2020-04-15 13:15.
+# Running Scanpy 1.4.5.1, on 2020-04-15 02:01.
 # scanpy==1.4.5.1 anndata==0.7.1 umap==0.3.10 numpy==1.17.3 scipy==1.4.1 pandas==1.0.3 scikit-learn==0.21.3 statsmodels==0.10.1 python-igraph==0.7.1 louvain==0.6.1
 
-# 1) Reading and performing QC on individual datasets
-
-# 1.1) Reading the data in the anndata object individually
+# 1 Reading the data
+# Merge 10x datasets for different mices
+# https://github.com/theislab/scanpy/issues/267
 # Outlier_left_out: 'input/manec/pilot2/bulk1079_mouse_filtered_feature_bc_matrix.h5'
 tissueFilenames = [
                     'input/manec/tissue/bulk997_mouse_filtered_feature_bc_matrix.h5', 
@@ -98,154 +99,45 @@ tissueFilenames = [
                     'input/manec/tissue/stomach1001_mouse_filtered_feature_bc_matrix.h5'
                   ]
 adatas          = [sc.read_10x_h5(f) for f in tissueFilenames]
-adatas
-# [AnnData object with n_obs × n_vars = 4334 × 55488 
-#  AnnData object with n_obs × n_vars = 1852 × 55488 
-#  AnnData object with n_obs × n_vars =  897 × 55488 
-#  AnnData object with n_obs × n_vars =  904 × 55488]
-#  var: 'gene_ids', 'feature_types', 'genome'
+adata           = adatas[0].concatenate(adatas[1:])
 
-# Get the dictionary of tissue ids
+# Make variable names unique
+adata.var_names_make_unique()
+
+# Add tissue id column for the batches
 tissueIdDict =  {
-                    '0':'bulk1001', 
-                    '1':'bulk997', 
+                    '0':'bulk997', 
+                    '1':'bulk1001', 
                     '2':'bulk1018', 
                     '3':'stomach1001'
                 }
-
-# Create QC filtered adatas list
-fadatas = list()
-
-# 1.2) Make the variable names unique for each annData object separately and calculate some general qc-stats for genes and cells
-minGenesPerCell = 5
-minCountPerCell = 50
-maxCountPerCell = 50000 
-minCellsPergene = 5
-for i, adata in enumerate(adatas):
-    tid = tissueIdDict[str(i)]
-    print("########################################")
-    print("{0}) Processing {1}\n".format(i, tid))
-    adata.var_names_make_unique()
-
-    # Convert the sparse count matrices to dense represntation
-    adata.X = adata.X.toarray()
-
-    # Get individual plots dir for each sample
-    indvBname    = tid
-    indvPlotsDir = "{0}/01_preprocessing/{1}".format(plotsDir,tid); create_dir(indvPlotsDir)
-
-    # 1.2.1) Calculate QC covariates
-    print("- {0} with shape {1}".format(tid, adata.to_df().shape))
-    sc.pp.calculate_qc_metrics(adata, inplace=True) # we now have many additional data types in the obs slot:
-    adata.obs['n_counts']   = adata.X.sum(1)
-    adata.obs['log_counts'] = np.log(adata.obs['n_counts'])
-    adata.obs['n_genes']    = (adata.X > 0).sum(1)
-    adata
-    # obs: 'n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'pct_counts_in_top_50_genes', 'pct_counts_in_top_100_genes', 'pct_counts_in_top_200_genes', 'pct_counts_in_top_500_genes', 'n_counts', 'log_counts', 'n_genes'
-    # var: 'gene_ids', 'feature_types', 'genome', 'n_cells_by_counts', 'mean_counts', 'log1p_mean_counts', 'pct_dropout_by_counts', 'total_counts', 'log1p_total_counts'
-
-    # Calculate mitochondrial/ribosomal genes fraction (percentage)
-    # For each cell compute fraction of counts in mito/ribo genes vs. all genes
-    mt_gene_mask         = [gene.startswith('mt-') for gene in adata.var_names]
-    adata.obs['mt_frac'] = adata.X[:, mt_gene_mask].sum(1)/adata.obs['n_counts']
-    rb_gene_mask         = [gene.startswith(("Rps","Rpl")) for gene in adata.var_names]
-    adata.obs['rb_frac'] = adata.X[:, rb_gene_mask].sum(1)/adata.obs['n_counts']
-
-    # 1.2.2) Plot QC metrics
-    # Sample quality plots
-    t1 = sc.pl.violin(adata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, show=False)
-    plt.savefig("{0}/01_raw_{1}_nCounts_nGenes_plot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    t2 = sc.pl.violin(adata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, show=False)
-    plt.savefig("{0}/01_raw_{1}_MtRbFrac_plot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    # 1.2.3) Data quality summary plots
-    p1 = sc.pl.scatter(adata, 'n_counts', 'n_genes', color='mt_frac', show=False)
-    plt.savefig("{0}/01_raw_{1}_genes_counts_mtfrac_scatterplot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    p2 = sc.pl.scatter(adata[adata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', show=False)
-    plt.savefig("{0}/01_raw_{1}_genes_counts_mtfrac_scatterplot_zoomedin.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    p1 = sc.pl.scatter(adata, 'n_counts', 'n_genes', color='rb_frac', show=False)
-    plt.savefig("{0}/01_raw_{1}_genes_counts_rbfrac_scatterplot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    p2 = sc.pl.scatter(adata[adata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', show=False)
-    plt.savefig("{0}/01_raw_{1}_genes_counts_rbfrac_scatterplot_zoomedin.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    # 1.2.4) Thresholdingecision based on counts
-    p3 = sns.distplot(adata.obs['n_counts'], kde=False); #plt.show()
-    plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    p4 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']<2000], kde=False, bins=50); #plt.show()
-    plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot_lessthan_2000.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    p5 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']>5000], kde=False, bins=50); #plt.show()
-    plt.savefig("{0}/01_raw_{1}_ncounts_histogramplot_greaterthan_5000.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    # 1.2.5) Thresholding decision based on genes
-    p6 = sns.distplot(adata.obs['n_genes'], kde=False, bins=50); # plt.show()
-    plt.savefig("{0}/01_raw_{1}_genes_histogramplot.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    p7 = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<1000], kde=False, bins=50); # plt.show()
-    plt.savefig("{0}/01_raw_{1}_genes_histogramplot_lessthan_1000.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    # 1.2.6) Filter cells according to identified QC thresholds:
-    print('Total number of cells: {:d}'.format(adata.n_obs))
-    sc.pp.filter_cells(adata, min_counts = minCountPerCell)
-    print('Number of cells after min count filter: {:d}'.format(adata.n_obs))
-
-    sc.pp.filter_cells(adata, max_counts = maxCountPerCell)
-    print('Number of cells after max count filter: {:d}'.format(adata.n_obs))
-
-    adata = adata[adata.obs['mt_frac'] < mtGenesFilter]
-    print('Number of cells after MT filter  : {:d}'.format(adata.n_obs))
-    adata = adata[adata.obs['rb_frac'] < rbGenesFilter]
-    print('Number of cells after Ribo filter: {:d}'.format(adata.n_obs))
-
-    sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
-    print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
-
-    # 1.2.7) Filter genes according to identified QC thresholds:
-    print('Total number of genes: {:d}'.format(adata.n_vars))
-    sc.pp.filter_genes(adata, min_cells=minCellsPergene)
-    print('Number of genes after minCellsPergene filter: {:d}'.format(adata.n_vars))
-
-    # 1.2.8) Compute variable genes
-    # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
-    sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000)
-    print('\n','Number of highly variable genes: {:d}'.format(np.sum(adata.var['highly_variable'])))
-
-    # 1.2.9) Calculations for the visualizations
-    sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
-    sc.pp.neighbors(adata, random_state = 2105)
-    sc.tl.umap(adata, random_state = 2105, n_components=3)
-
-    # 1.2.10) Plot visualizations
-    sc.pl.pca_scatter(adata, color='n_counts',show=False)
-    plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    sc.pl.umap(adata, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-    plt.savefig("{0}/01_raw_{1}_clustering_UMAP.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-    sc.pl.umap(adata, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
-    plt.savefig("{0}/01_raw_{1}_clustering_UMAP_3D.png".format(indvPlotsDir, indvBname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-    # # 1.2.11) Expression recovery (denoising) the data on raw counts
-    # sce.pp.dca(adata)
-
-    # 1.2.12) Add to the filtered adatas list
-    fadatas.append(adata)
-
-# 1.3) Merge 10x datasets for different mices
-# https://github.com/theislab/scanpy/issues/267
-adata = fadatas[0].concatenate(fadatas[1:])
-
-# 1.4) Make variable names unique
-adata.var_names_make_unique()
-
-# 1.5) Add tissue id column for the batches
 adata.obs['tissueID'] = adata.obs['batch'].map(tissueIdDict)
 
-# 1.6) Checking the total size of the data set
-adata.shape # We have 5887 cells and 11029 genes in the dataset
+# Convert the sparse count matrices to dense represntation
+adata.X = adata.X.toarray()
 
-# Reset the parameters for merged data
-minGenesPerCell = 25
-minCountPerCell = 150
-maxCountPerCell = 50000 
-minCellsPergene = 25
+# AnnData object with n_obs × n_vars = 9038 × 31053 
+#     obs: 'batch', 'tissueID'
+#     var: 'gene_ids', 'feature_types', 'genome'
+
+# Checking the total size of the data set
+adata.shape # We have 9038 cells and 31053 genes in the dataset
+
+# 1.2) Calculate QC covariates
+sc.pp.calculate_qc_metrics(adata, inplace=True) # we now have many additional data types in the obs slot:
+adata.obs['n_counts']   = adata.X.sum(1)
+adata.obs['log_counts'] = np.log(adata.obs['n_counts'])
+adata.obs['n_genes']    = (adata.X > 0).sum(1)
+adata
+# obs: 'n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'pct_counts_in_top_50_genes', 'pct_counts_in_top_100_genes', 'pct_counts_in_top_200_genes', 'pct_counts_in_top_500_genes', 'n_counts', 'log_counts', 'n_genes'
+# var: 'gene_ids', 'feature_types', 'genome', 'n_cells_by_counts', 'mean_counts', 'log1p_mean_counts', 'pct_dropout_by_counts', 'total_counts', 'log1p_total_counts'
+
+# Calculate mitochondrial/ribosomal genes fraction (percentage)
+# For each cell compute fraction of counts in mito/ribo genes vs. all genes
+mt_gene_mask         = [gene.startswith('mt-') for gene in adata.var_names]
+adata.obs['mt_frac'] = adata.X[:, mt_gene_mask].sum(1)/adata.obs['n_counts']
+rb_gene_mask         = [gene.startswith(("Rps","Rpl")) for gene in adata.var_names]
+adata.obs['rb_frac'] = adata.X[:, rb_gene_mask].sum(1)/adata.obs['n_counts']
 
 # 2) Plot QC matrices for raw filtered merged data
 # 2.1) Plot sample QC metrics for merged data
@@ -284,18 +176,18 @@ print('Number of cells after max count filter: {:d}'.format(adata.n_obs))
 sc.pp.filter_cells(adata, min_genes = minGenesPerCell)
 print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
 
-# Total number of cells: 5887
-# Number of cells after min count filter: 5887
-# Number of cells after max count filter: 5885
-# Number of cells after gene filter: 5885
+# Total number of cells: 7987
+# Number of cells after min count filter: 7987
+# Number of cells after max count filter: 7985
+# Number of cells after gene filter: 7945
 
 # 2.6) Filter genes according to identified QC thresholds:
-# Min minCellsPergene cells - filters out 0 count genes
+# Min 5 cells - filters out 0 count genes
 print('Total number of genes: {:d}'.format(adata.n_vars))
 sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
-# Total number of genes: 11029
-# Number of genes after cell filter: 11023
+# Total number of genes: 55488
+# Number of genes after cell filter: 8902
 
 # 2.7) Compute highly variable genes (HVGs)
 # Next, we first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
@@ -303,13 +195,13 @@ sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000, batch
 print("Highly variable genes intersection: %d"%sum(adata.var.highly_variable_intersection))
 print("Number of batches where gene is variable:")
 print(adata.var.highly_variable_nbatches.value_counts())
-# Highly variable genes intersection: 983
+# Highly variable genes intersection: 1132
 # Number of batches where gene is variable:
-# 1    3460
-# 0    2978
-# 2    2200
-# 3    1402
-# 4     983
+# 1    2544
+# 2    2179
+# 0    1525
+# 3    1522
+# 4    1132
 # Name: highly_variable_nbatches, dtype: int64
 
 # Calculations for the visualizations
@@ -348,7 +240,7 @@ input_groups = adata_pp.obs['groups']
 data_mat = adata.X.T
 # Run scran in R
 %%R -i data_mat -i input_groups -o size_factors
-size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.25)
+size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.1)
 # Delete adata_pp
 del adata_pp
 # Visualize the estimated size factors
@@ -369,7 +261,6 @@ sc.pp.log1p(adata)
 # Store the full data set in 'raw' as log-normalised data for statistical testing
 adata.raw = adata
 
-#########################################################################
 # 4) Biological correction
 # 4.1) Read cell cycle genes
 cc_genes         = pd.read_table(ccGenes_macosko, delimiter='\t')
@@ -397,96 +288,66 @@ sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.ve
 plt.tight_layout()
 plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
 
-#########################################################################
-normadata = adata.copy()
-rawadatas = adatas.copy()
+# 5) Technical correction
+# 5.1) Batch Correction using Scanorama
 
-# 5) Technical correction: Batch Correction using Scanorama
-# 5.1) Detect variable genes
-# As the stored AnnData object contains scaled data based on variable genes, we need to make a new object with the raw counts and normalized it again. Variable gene selection should not be performed on the scaled data object, only do normalization and log transformation before variable genes selection.
-adata2 = sc.AnnData(X=adata.raw.X, var=adata.raw.var, obs = adata.obs)
-sc.pp.normalize_per_cell(adata2, counts_per_cell_after=1e4)
-sc.pp.log1p(adata2)
-# adata2 = normadata.copy()
+# 4.2) Batch Correction using Scanorama
+adata2 = sc.AnnData(X=adata.X, var=adata.var, obs = adata.obs)
 
-# Detect variable genes for the full dataset
-sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5)
-print("Highly variable genes: %d"%sum(adata2.var.highly_variable))
-var_genes_all = adata2.var.highly_variable
-# Highly variable genes: 3210
-
-# Detect variable genes in each dataset separately using the batch_key parameter.
+#variable genes for the full dataset
 sc.pp.highly_variable_genes(adata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'tissueID')
+print("Highly variable genes intersection: %d"%sum(adata2.var.highly_variable_intersection))
+print("Number of batches where gene is variable:")
+print(adata2.var.highly_variable_nbatches.value_counts())
 var_genes_batch = adata2.var.highly_variable_nbatches > 0
-print("Any batch var genes: %d"%sum(var_genes_batch))
-print("All data var genes: %d"%sum(var_genes_all))
-print("Overlap: %d"%sum(var_genes_batch & var_genes_all))
-print("Variable genes in all batches: %d"%sum(adata2.var.highly_variable_nbatches ==3))
-print("Overlap batch instersection and all: %d"%sum(var_genes_all & adata2.var.highly_variable_intersection))
-# Highly variable genes: 3210
-# Any batch var genes: 7563
-# All data var genes: 0
-# Overlap: 0
-# Variable genes in all batches: 1019
-# Overlap batch instersection and all: 0
-
-# Select all genes that are variable in at least 2 datasets and use for remaining analysis.
-var_select = adata2.var.highly_variable_nbatches > 2
+var_select = adata2.var.highly_variable_nbatches > 1
 var_genes = var_select.index[var_select]
+len(var_genes)
 
-# 5.2 )Data integration
-# Split per batch into new objects.
 batches = ['bulk997','bulk1001','bulk1018','stomach1001']
 alldata = {}
 for batch in batches:
     alldata[batch] = adata2[adata2.obs['tissueID'] == batch,]
 
-# Subset the individual dataset to the variable genes
+# Subset the individual dataset to the same variable genes as in MNN-correct.
 alldata2 = dict()
 for ds in alldata.keys():
     print(ds)
     alldata2[ds] = alldata[ds][:,var_genes]
 
 # Convert to list of AnnData objects
-adatas = list(alldata2.values())
+normAdatas = list(alldata2.values())
 
 # Run scanorama.integrate
-scanorama  = scanorama.integrate_scanpy(adatas, dimred = 50,)
-# Found 1251 genes among all datasets
-# [[0.         0.4407827  0.31822863 0.43661972]
-#  [0.         0.         0.70342772 0.47247119]
-#  [0.         0.         0.         0.67511177]
-#  [0.         0.         0.         0.        ]]
+scanorama  = scanorama.integrate_scanpy(normAdatas, dimred = 50,)
 
 # Returns a list of 4 np.ndarrays with 50 columns.
 print(scanorama[0].shape)
 print(scanorama[1].shape)
 print(scanorama[2].shape)
 print(scanorama[3].shape)
-# (971, 50)
-# (3462, 50)
-# (671, 50)
-# (781, 50)
 
 # Make into one matrix.
 all_s = np.concatenate(scanorama)
-print(all_s.shape) # (5885, 50)
+print(all_s.shape)
 
 # Add to the AnnData object
-adata.obsm["SC"] = all_s
+scanoramaCorrAdata = adata.copy()
+scanoramaCorrAdata.obsm["SC"] = all_s
 
 # Calculations for the visualizations
-sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC", n_neighbors=5)
-sc.tl.umap(adata, random_state = 2105, n_components=3)
+sc.pp.highly_variable_genes(scanoramaCorrAdata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(scanoramaCorrAdata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(scanoramaCorrAdata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(scanoramaCorrAdata, random_state = 2105, n_components=3)
 
-# Plot the UMAPs
 fig = plt.figure(figsize=(16,13))
 # 2D projection
-ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scran Scanorama UMAP")
+ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(adata         ,                  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="tissueID"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scran Scanorama UMAP")
 # 3D projection
-ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(adata                , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scran Scanorama UMAP")
+ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(adata          , legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
+ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(scanoramaCorrAdata, legend_loc=None, ax=ax, color="tissueID"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scran Scanorama UMAP")
 plt.tight_layout()
 plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
@@ -494,7 +355,6 @@ plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plots
 ############################################################
 # Using SCANORAMA for batch correction
 ############################################################
-scanoramaBCadata = adata.copy() # (5885, 11023)
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -535,9 +395,9 @@ sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105
 # 4.3) Visualizations
 
 # Calculations for the visualizations
-# sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-# sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
-# sc.tl.umap(adata, random_state = 2105, n_components=3)
+sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
@@ -546,39 +406,42 @@ plt.savefig("{0}/03_normScanorama_{1}_clustering_all_louvain_UMAP.png".format(pl
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/03_normScanorama_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-fig = plt.figure(figsize=(32,8))
+fig = plt.figure(figsize=(24,8))
 # 2D projection
-ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="tissueID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
-ax = fig.add_subplot(2, 5, 2);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="tissueID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama tissueID UMAP")
-ax = fig.add_subplot(2, 5, 3);                  sc.pl.umap(adata   ,                  ax=ax, color="louvain"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="louvain UMAP")
-ax = fig.add_subplot(2, 5, 4);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 5, 5);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="louvain_r0.5 UMAP")
+ax = fig.add_subplot(2, 4, 2);                  sc.pl.umap(adata   , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="tissueID UMAP")
+ax = fig.add_subplot(2, 4, 3);                  sc.pl.umap(adata         , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 4, 4);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
 # 3D projection
-ax = fig.add_subplot(2, 5, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None,  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
-ax = fig.add_subplot(2, 5, 7, projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama tissueID UMAP")
-ax = fig.add_subplot(2, 5, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="louvain", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="louvain UMAP")
-ax = fig.add_subplot(2, 5, 9, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(adata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 4, 5, projection='3d'); sc.pl.umap(adata             , legend_loc=None, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="louvain_r0.5 UMAP")
+ax = fig.add_subplot(2, 4, 6, projection='3d'); sc.pl.umap(adata   , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="tissueID UMAP")
+ax = fig.add_subplot(2, 4, 7, projection='3d'); sc.pl.umap(adata         , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
 plt.tight_layout()
 plt.savefig("{0}/03_normScanorama_{1}_louvain_tissueID_counts_mtfrac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Louvain UMAPs
+# sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_10, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+# plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# sc.pl.umap(adata, color=['louvain_r0.5'], palette=sc.pl.palettes.vega_10, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+# plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+# UMAPS
 fig = plt.figure(figsize=(16,6))
-fig.suptitle('louvain')
+fig.suptitle('louvain_r0.5')
 # 2D projection
 ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color="louvain", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
 # 3D projection
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color="louvain", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+sc.pl.umap(adata, ax=ax, color="louvain_r0.5", palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normScanorama_{1}_clustering_louvain_r05_UMAP_2D3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 7.2) Marker genes & cluster annotation
 # Calculate marker genes
-sc.tl.rank_genes_groups(adata, groupby='louvain', key_added='rank_genes')
+sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_r0.5')
 
 # Plot marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
+sc.pl.rank_genes_groups(adata, key='rank_genes_r0.5', fontsize=12, show=False)
 plt.savefig("{0}/03_normScanorama_{1}_louvain_r05_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Annotation of cluster r_0.5 with known marker genes
@@ -601,7 +464,7 @@ ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(
 for k in marker_genes.keys():
   ids = np.in1d(adata.var_names, marker_genes[k])
   adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  sc.pl.umap(adata, color=['louvain','{0}_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+  sc.pl.umap(adata, color=['louvain_r0.5','{0}_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
   plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs_3D.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Generate the UMAPs for each marker categories
@@ -609,46 +472,52 @@ plt.figure(figsize=(100,8))
 for k in ma_marker_genes.keys():
   ids = np.in1d(adata.var_names, ma_marker_genes[k])
   adata.obs['{0}_ma_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  sc.pl.umap(adata, color=['louvain','{0}_ma_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
+  sc.pl.umap(adata, color=['louvain_r0.5','{0}_ma_marker_expr'.format(k)], color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False)
   plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs_3D.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Plot Final Marker genes
 # Calculate marker genes
-sc.tl.rank_genes_groups(adata, groupby='louvain', key_added='rank_genes_louvain')
+sc.tl.rank_genes_groups(adata, groupby='louvain_r0.5', key_added='rank_genes_louvain_r0.5')
 # Plot marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes_louvain', fontsize=12, show=False)
-plt.savefig("{0}/{1}_louvain_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.rank_genes_groups(adata, key='rank_genes_louvain_r0.5', fontsize=12, show=False)
+plt.savefig("{0}/{1}_louvain_r0.5_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Erythrocytes
-sc.pl.umap(adata, color=['louvain','Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Erythrocytes') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Restin
-sc.pl.umap(adata, color=['louvain','S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Retnlg','S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Restin') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Tcells
-sc.pl.umap(adata, color=['louvain','Cd3d'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Sh2d1a','Cd3d','Cd3e','Cd8a'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Tcells') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Endothelial/Epithelial_Igfbp3⁺
-sc.pl.umap(adata, color=['louvain','Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial_Epithelial_Igfbp3pos') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Endothelial
-sc.pl.umap(adata, color=['louvain','Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Pancreas (Identified from louvain_r15_marker_genes_ranking)
 # This particular plot is providing no useful information
 # Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
-sc.pl.umap(adata, color=['louvain','Rps24','Rps11','Rps3','Rpl23','Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain_r0.5','Rps24','Rps11','Rps3','Rpl23','Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
 
-# Save the louvain information in external file
-louvainsDF = pd.DataFrame(adata.obs['louvain'])
-louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
+# Save the louvain_r0.5 information in external file
+louvain_r0.5sDF = pd.DataFrame(adata.obs['louvain_r0.5'])
+louvain_r0.5sDF.to_csv("{0}/03_{1}_louvain_r0.5s.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
 
+
+
+
+
+# Finished on 2020-04Apr-14
+#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # --------------------------------------------------------
 # Plot UMAP for all the tumor cells 
 # Color the cells that have human myc and ires
@@ -676,14 +545,11 @@ fig = plt.figure(figsize=(16,6))
 fig.suptitle('hgMycIresCd2')
 # 2D projection
 ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
 # 3D projection
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
+sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normScanorama_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Finished on 2020-04Apr-15 11:51 am
-#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # # --------------------------------------------------------
 # # Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
