@@ -1,7 +1,10 @@
 # pwd
 cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 
-# Source: https://nbviewer.jupyter.org/github/theislab/trVAE/blob/master/examples/trVAE_Haber.ipynb
+# Source: 
+#   - https://github.com/theislab/single-cell-tutorial/blob/master/latest_notebook/Case-study_Mouse-intestinal-epithelium_1906.ipynb
+#   - https://nbviewer.jupyter.org/github/theislab/trVAE/blob/master/examples/trVAE_Haber.ipynb
+
 
 # NOTE: plt.subplot(number_of_rows, number_of_columns, index_of_the_subplot) 
 ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
@@ -21,6 +24,7 @@ import matplotlib
 # matplotlib.use('TkAgg')
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D # for 3D projection
 
 
 # Reset random state
@@ -67,16 +71,15 @@ projName        = "trvae_alltissues_except1079" # MANEC_merged_except1079_hMYC_f
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
-minGenesPerCell = 250
-minCountPerCell = 150
+minGenesPerCell = 150
+minCountPerCell = 100
 maxCountPerCell = 50000 
-minCellsPergene = 100
+minCellsPergene = 75
 mtGenesFilter   = 0.25
 rbGenesFilter   = 0.15
 bname           = projName
 plotsDir        = "{0}/plots".format(output_dir); create_dir(plotsDir)
 dataDir         = "{0}/data".format(output_dir); create_dir(dataDir)
-
 
 # Define a nice colour map for gene expression
 colors2 = plt.cm.Reds(np.linspace(0, 1, 128))
@@ -250,10 +253,10 @@ cell_type_key = "cellType"
 adata.shape # We have 5887 cells and 11029 genes in the dataset
 
 # Reset the parameters for merged data
-minGenesPerCell = 250  # Recommened in Seurat
-minCountPerCell = 150
+minGenesPerCell = 150
+minCountPerCell = 100
 maxCountPerCell = 50000 
-minCellsPergene = 100
+minCellsPergene = 75
 
 # 2) Plot QC matrices for raw filtered merged data
 # 2.1) Plot sample QC metrics for merged data
@@ -295,7 +298,7 @@ print('Number of cells after gene filter: {:d}'.format(adata.n_obs))
 # Total number of cells: 5887
 # Number of cells after min count filter: 5887
 # Number of cells after max count filter: 5885
-# Number of cells after gene filter: 5435
+# Number of cells after gene filter: 5842
 
 # 2.6) Filter genes according to identified QC thresholds:
 # Min minCellsPergene cells - filters out 0 count genes
@@ -303,7 +306,7 @@ print('Total number of genes: {:d}'.format(adata.n_vars))
 sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after cell filter: {:d}'.format(adata.n_vars))
 # Total number of genes: 11029
-# Number of genes after cell filter: 8669
+# Number of genes after cell filter: 9606
 
 # 2.7) Compute highly variable genes (HVGs)
 # Next, we first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
@@ -311,13 +314,13 @@ sc.pp.highly_variable_genes(adata, flavor='cell_ranger', n_top_genes=4000, batch
 print("Highly variable genes intersection: %d"%sum(adata.var.highly_variable_intersection))
 print("Number of batches where gene is variable:")
 print(adata.var.highly_variable_nbatches.value_counts())
-# Highly variable genes intersection: 1144
+# Highly variable genes intersection: 1096
 # Number of batches where gene is variable:
-# 1    2494
-# 2    2227
-# 3    1496
-# 0    1308
-# 4    1144
+# 1    2921
+# 2    2209
+# 0    1955
+# 3    1425
+# 4    1096
 # Name: highly_variable_nbatches, dtype: int64
 
 # Calculations for the visualizations
@@ -340,6 +343,12 @@ sc.pl.umap(adata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palett
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
 sc.pl.umap(adata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/01_raw_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 5.8) Save the trVAE batch corrected adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); rawadata  = sc.read_h5ad(adatafile)
 
 ########################
 rawadata = adata.copy()
@@ -404,6 +413,11 @@ sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.ve
 plt.tight_layout()
 plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
 
+# 4.4) Save the normalized cell cycle corrected adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
 #########################################################################
 normadata = adata.copy()
 rawadatas = adatas.copy()
@@ -457,7 +471,8 @@ network = trvae.archs.trVAE(x_dimension=train_adata.shape[1],
 # condition_key: (str) name of the column containing batches' names in train_adata and valid_adata (Necessary)
 # condition_encoder: (dict) dictionary of encoded batches (keys: batch names, values: encoded integers) (default = None)
 # verbose: (int) level of verbosity (default = 0)
-# NOTE: This will take 8 minutes on WS4 with single CPU
+# NOTE: This will take 8 to 10 minutes on WS4 with single CPU
+outModelFile    = "{0}/trVAE_{1}_network.model".format(dataDir,projName)
 network.train(train_adata,
               valid_adata,
               condition_encoder,
@@ -468,6 +483,7 @@ network.train(train_adata,
               early_stop_limit=750,
               lr_reducer=0,
               shuffle=True,
+              save=True,
               )
 
 # 5.6) Getting batch-corrected adata
@@ -487,7 +503,7 @@ adata.obsm['mmd_latent']    = adata2.obsm['mmd_latent']
 adata.obsm['z_latent']      = adata2.obsm['z_latent']
 adata.obsm['reconstructed'] = adata2.obsm['reconstructed']
 # sc.pp.neighbors(adata, random_state = 2105, n_neighbors=10, use_rep = "mmd_latent")
-sc.pp.neighbors(adata, random_state = 2105, n_neighbors=15, use_rep = "mmd_latent")
+sc.pp.neighbors(adata, random_state = 2105, n_neighbors=7, use_rep = "mmd_latent")
 sc.tl.umap(adata, random_state = 2105, n_components=3)
 fig = plt.figure(figsize=(16,13))
 fig.suptitle('TissueID')
@@ -499,6 +515,12 @@ ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(rawadata, legend_loc=
 ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(adata                , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE UMAP")
 plt.tight_layout()
 plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# 5.8) Save the trVAE batch corrected adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); trvaeBCadata  = sc.read_h5ad(adatafile)
 
 ############################################################
 ############################################################
@@ -555,26 +577,8 @@ sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105
 
 # Number of cells in each cluster
 # adata.obs['louvain_r1.5'].value_counts()                                                                                                                     # 0     821
-# 1     692
-# 2     685
-# 3     653
-# 4     650
-# 5     571
-# 6     541
-# 7     475
-# 8     434
-# 9     401
-# 10    370
-# 11    325
-# 12    218
-# 13    203
-# 14    157
-# 15    137
-# 16    130
-# 17    114
 
 # 4.3) Visualizations
-
 # Calculations for the visualizations
 # sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
 # sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
@@ -587,8 +591,8 @@ plt.savefig("{0}/03_normTrVAE_{1}_clustering_all_louvain_UMAP.png".format(plotsD
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-cluster_key   = "louvain"
-cluster_bname = "louvain"
+cluster_key   = "louvain_r0.5"
+cluster_bname = "louvain_r05"
 fig = plt.figure(figsize=(32,8))
 # 2D projection
 ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="tissueID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
@@ -691,10 +695,6 @@ plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".f
 sc.pl.umap(adata, color=["{0}".format(cluster_key),'S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Restin') , bbox_inches='tight', dpi=175); plt.close('all')
 
-# Tcells
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Cd3d'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Tcells') , bbox_inches='tight', dpi=175); plt.close('all')
-
 # Endothelial/Epithelial_Igfbp3⁺
 sc.pl.umap(adata, color=["{0}".format(cluster_key),'Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial_Epithelial_Igfbp3pos') , bbox_inches='tight', dpi=175); plt.close('all')
@@ -703,18 +703,24 @@ plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".f
 sc.pl.umap(adata, color=["{0}".format(cluster_key),'Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial') , bbox_inches='tight', dpi=175); plt.close('all')
 
-# # Pancreas (Identified from louvain_r15_marker_genes_ranking)
-# # This particular plot is providing no useful information
-# # Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
-# sc.pl.umap(adata, color=["{0}".format(cluster_key),'Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-# plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
+# Acinar
+sc.pl.umap(adata, color=["{0}".format(cluster_key),'Cel', 'Pnliprp1', 'Clps'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Acinar') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Pancreas (Identified from louvain_r15_marker_genes_ranking)
+# This particular plot is providing no useful information
+# Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
+sc.pl.umap(adata, color=["{0}".format(cluster_key),'Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Cluster 4
+sc.pl.umap(adata, color=["{0}".format(cluster_key),'Cel', 'Pnliprp1', 'Igfbp2', 'Tnni3', 'Clps', 'Vtn', 'Lars2', 'Npm1', 'Mir6236', 'Slc25a4', 'Eif5a', 'Eef1a1', 'Phgdh', 'Rpl4', 'Pcbd1', 'Tmem97', 'Nudc', 'Aldoa', 'Ncl', 'Ak2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Cluster4') , bbox_inches='tight', dpi=175); plt.close('all')
+
 
 # Save the louvain information in external file
 louvainsDF = pd.DataFrame(adata.obs[cluster_key])
 louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
-
-# Finished on 2020-04Apr-15 17:51 am
-#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #---------------------------------------------------------------------
 # Categories to rename
@@ -724,50 +730,231 @@ adata.obs[cluster_key].cat.categories
 adata.obs['cellType'] = adata.obs[cluster_key]
 
 # Add new categories
-adata.obs['cellType'].cat.add_categories(['Birc5⁺/basal', 'Tcells', 'Dendritic', 'Macrophages','Endothelial', 'Endothelial/Epithelial_Igfbp3⁺', 'Erythrocytes', 'Fibroblasts','Restin_like_gamma', 'Tumor', 'Pit_cells', 'Parietal', 'Pancreas'], inplace=True) 
+adata.obs['cellType'].cat.add_categories(['Tumor','Dendritic','Endothelial/Epithelial_Igfbp3⁺','Macrophages','Acinar','Fibroblasts','Erythrocytes','Pit_cells','Restin_like_gamma','Progenitor_at_neck'], inplace=True) 
 
 # Get a new subcluster column
-# 0           = 'Birc5⁺/basal'
-# 1           = 'Tcells'
+# 0,1         = 'Pit_cells'
 # 2           = 'Dendritic'
-# 3,7,8,11,12 = 'Tumor'
-# 4,6         = 'Pit_cells'
+# 3           = 'Endothelial/Epithelial_Igfbp3⁺'
+# 4           = 'Acinar'
 # 5           = 'Erythrocytes'
-# 9           = 'Macrophages'
-# 10          = 'Endothelial'
-# 13          = 'Fibroblasts'
-# 14          = 'Pancreas'
-# 15          = 'Restin_like_gamma'
-# 16          = 'Endothelial/Epithelial_Igfbp3⁺'
-# 17          = 'Parietal'
+# 7           = 'Macrophages'
+# 9           = 'Fibroblasts'
+# 10          = 'Restin_like_gamma'
+# 11          = 'Progenitor_at_neck'
+# 6,8,12      = 'Tumor'
 
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='0' ]  = 'Birc5⁺/basal'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='1' ]  = 'Tcells'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='2' ]  = 'Dendritic'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Endothelial/Epithelial_Igfbp3⁺'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='4' ]  = 'Acinar'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='5' ]  = 'Erythrocytes'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='9' ]  = 'Macrophages'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Endothelial'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='13']  = 'Fibroblasts'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='14']  = 'Pancreas'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='15']  = 'Restin_like_gamma'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='16']  = 'Endothelial/Epithelial_Igfbp3⁺'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='17']  = 'Parietal'
-adata.obs['cellType'].loc[(adata.obs['cellType']=='6')|(adata.obs['cellType']=='4')]  = 'Pit_cells'
-adata.obs['cellType'].loc[(adata.obs['cellType']=='3')|(adata.obs['cellType']=='7')|(adata.obs['cellType']=='8')|(adata.obs['cellType']=='11')|(adata.obs['cellType']=='12')]  = 'Tumor'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='7' ]  = 'Macrophages'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='9' ]  = 'Fibroblasts'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Restin_like_gamma'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='11']  = 'Progenitor_at_neck'
+adata.obs['cellType'].loc[(adata.obs['cellType']=='0')|(adata.obs['cellType']=='1')]  = 'Pit_cells'
+adata.obs['cellType'].loc[(adata.obs['cellType']=='6')|(adata.obs['cellType']=='8')|(adata.obs['cellType']=='12')]  = 'Tumor'
 
 # Remove old categories
-adata.obs['cellType'].cat.remove_categories(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17'], inplace=True)
+adata.obs['cellType'].cat.remove_categories(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], inplace=True)
 
 # List new categories
 adata.obs['cellType'].cat.categories
 
 # Draw Umaps with the categories
-sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+fig = plt.figure(figsize=(36,20))
+fig.suptitle('CellType UMAP')
+# 2D projection
+ax = fig.add_subplot(2, 3, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="cellType", palette=sc.pl.palettes.vega_20, size=150, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(2, 3, 2);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color="cellType".format(k),  palette=sc.pl.palettes.vega_20, size=150, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(2, 3, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="cellType", palette=sc.pl.palettes.vega_20, size=150, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+# Save the UMAP
+plt.savefig("{0}/03_normTrVAE_{1}_clustering_CellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=200); plt.close('all')
 
-sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False)
-plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_legend_onData_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby='cellType', key_added='rank_genes')
+# Plot marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
+plt.savefig("{0}/03_normTrVAE_{1}_{2}_marker_genes_ranking_cellType.png".format(plotsDir, bname, 'cellType') , bbox_inches='tight', dpi=175); plt.close('all')
 
-plt.figure(figsize=(50,50))
-sc.pl.umap(adata, color=['cellType'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, legend_loc='on data', show=False,zorder=0)
-plt.savefig("{0}/03_normScanorama_{1}_clustering_cellType_legend_onData_UMAP.jpg".format(plotsDir, bname) , bbox_inches='tight', dpi=600, rasterized=True, edgecolor='white'); plt.close('all')
+# 7.5) Save the cellType assigned adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/04_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/04_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); cellTypeadata  = sc.read_h5ad(adatafile)
+
+############################################################
+# 8) Analysis of Tumor cluster
+############################################################
+cellTypeadata = adata.copy() # (5885, 11023)
+
+# 8.1) Subcluster Tumors
+sc.tl.louvain(adata, restrict_to=('cellType', ['Tumor']), resolution=0.2, key_added='cellType_Tumor_sub')
+#Show the new clustering
+if 'cellType_Tumor_sub_colors' in adata.uns:
+    del adata.uns['cellType_Tumor_sub_colors']
+
+# Louvain UMAPs
+fig = plt.figure(figsize=(16,6))
+fig.suptitle("cellType_Tumor_sub UMAP")
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adata, legend_loc=None, ax=ax, color='cellType_Tumor_sub', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adata, ax=ax, color='cellType_Tumor_sub', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/04_{1}_tumor_sub_cluster.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+#Get the new marker genes
+sc.tl.rank_genes_groups(adata, groupby='cellType_Tumor_sub', key_added='rank_genes_cellType_Tumor_sub')
+
+#Plot the new marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes_cellType_Tumor_sub', groups=['Tumor,0','Tumor,1','Tumor,2'], fontsize=12, show=False)
+plt.savefig("{0}/{1}_cellType_Tumor_sub_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# Finished on 2020-04Apr-20 00:55 am
+#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+
+
+# 8.2) Get separate Tumor cluster analysis from 
+# Get the Tumor cluster anndata
+adataTumorSubCluster = adata[adata.obs['cellType'] == 'Tumor'] # (620, 9606)
+
+# Get the index of ductal subcluster
+tumorSubClusterDF = adataTumorSubCluster.to_df()
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Get the ratio of expression
+# pd.set_option('display.float_format', lambda x: '%.2f' % x)
+tumorSubClusterDF['CFTR_rank'] = tumorSubClusterDF['CFTR'].rank()
+tumorSubClusterDF['MUC1_rank'] = tumorSubClusterDF['MUC1'].rank()
+tumorSubClusterDF['rank_CFTR_minus_MUC1'] = tumorSubClusterDF.apply(lambda row: (row['CFTR_rank'] - row['MUC1_rank']), axis=1)
+# tumorSubClusterDF[['CFTR', 'MUC1', 'rank_CFTR_minus_MUC1']]
+
+# Get median for both genes
+# cftrMedianExp = np.float(tumorSubClusterDF['CFTR'].describe()[['50%']].values)
+# muc1MedianExp = np.float(tumorSubClusterDF['MUC1'].describe()[['50%']].values)
+chmlDuctalIdx  = tumorSubClusterDF[tumorSubClusterDF['rank_CFTR_minus_MUC1'] >= 100 ].index.tolist()                # 269
+clmhDuctalIdx  = tumorSubClusterDF[tumorSubClusterDF['rank_CFTR_minus_MUC1'] <= -100].index.tolist()                # 312
+otherDuctalIdx = tumorSubClusterDF.loc[~tumorSubClusterDF.index.isin(chmlDuctalIdx + clmhDuctalIdx)].index.tolist() # 329
+
+# print(len(chmlDuctalIdx))
+# print(len(clmhDuctalIdx))
+# print(len(otherDuctalIdx))
+
+# Get a new subcluster column
+adataTumorSubCluster.obs['subClusters'] = adataTumorSubCluster.obs['customClusters']
+
+# Add new categories
+adataTumorSubCluster.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+
+# Get a new subcluster column
+adataTumorSubCluster.obs['subClusters'].loc[chmlDuctalIdx]  = adataTumorSubCluster.obs['subClusters'].loc[chmlDuctalIdx].replace('ductal','ductal_cftrHigh_muc1Low') 
+adataTumorSubCluster.obs['subClusters'].loc[clmhDuctalIdx]  = adataTumorSubCluster.obs['subClusters'].loc[clmhDuctalIdx].replace('ductal','ductal_cftrLow_muc1High') 
+adataTumorSubCluster.obs['subClusters'].loc[otherDuctalIdx] = adataTumorSubCluster.obs['subClusters'].loc[otherDuctalIdx].replace('ductal','ductal_other') 
+
+adataTumorSubCluster = adataTumorSubCluster[~((adataTumorSubCluster.obs['subClusters'] == 'ductal'))]
+
+# Visualize new subclusers
+sc.pl.umap(adataTumorSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataTumorSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# Mucin and CFTR enriched in clean ductal subpopulation
+sc.pl.umap(adataTumorSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+sc.pl.umap(adataTumorSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
+plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
+
+# In [10]: tumorSubClusterDF.shape
+# Out[10]: (910, 15120)
+ductalSubClusterRankDF   = tumorSubClusterDF[['CFTR', 'MUC1', 'CFTR_rank', 'MUC1_rank', 'rank_CFTR_minus_MUC1']]
+
+# Save the relevant data into an excel
+ductalSubClusterRankDF.to_csv("{0}/04_{1}_ductalSubClusters_gene_expression_ranks.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId", float_format='%.4g')
+
+# Calculate ranked marker genes
+sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_cftrLow_muc1High', n_genes=adataTumorSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_cftrLow_muc1High', groups=['ductal_cftrHigh_muc1Low','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrLow_muc1High.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_other'], key_added='rank_genes_ref_ductal_cftrHigh_muc1Low', reference='ductal_cftrHigh_muc1Low', n_genes=adataTumorSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_cftrHigh_muc1Low', groups=['ductal_cftrLow_muc1High','ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrHigh_muc1Low.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_other', reference='ductal_other', n_genes=adataTumorSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_other', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_other.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Dataframe of ranked genes
+for g in ['ductal_cftrHigh_muc1Low','ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_cftrLow_muc1High'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_ductal_cftrLow_muc1High.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrLow_muc1High', 'ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_cftrHigh_muc1Low'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_cftrHigh_muc1Low.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+for g in ['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_other'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_other.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
+# Save the normalized, log transformed, batch and cell cycle corrected data
+# Add new categories
+adataCustom.obs['subClusters'] = adataCustom.obs['customClusters']
+adataCustom.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
+adataCustom.obs['subClusters'].loc[chmlDuctalIdx]  = 'ductal_cftrHigh_muc1Low'
+adataCustom.obs['subClusters'].loc[clmhDuctalIdx]  = 'ductal_cftrLow_muc1High'
+adataCustom.obs['subClusters'].loc[otherDuctalIdx] = 'ductal_other'
+
+customClustersDF                              = adataCustom.to_df()
+customClustersDF['originalClusterAssignment'] = adataCustom.obs['Cluster']
+customClustersDF['Batch']                     = adataCustom.obs['Batch']
+customClustersDF['louvain_r1']                = adataCustom.obs['louvain_r1']
+customClustersDF['customClusters']            = adataCustom.obs['customClusters']
+customClustersDF['subClusters']               = adataCustom.obs['subClusters']
+customClustersDF.to_csv("{0}/04_normalizedRaw_T_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
+customClustersDF.T.to_csv("{0}/04_normalizedRaw_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
+
+
+################ Calculate ranked marker genes 
+# Get additional gene lists:
+# -CFTR high versus (Muc1 high and ductal other)
+# -Muc1 high versus (CFTR high and ductal other)
+# -Ductal other versus (CFTR high and Muc1 high)
+
+sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', key_added='rank_genes_ductalSubClusters', n_genes=adataTumorSubCluster.shape[1])
+sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ductalSubClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low', 'ductal_other'], fontsize=12, show=False)
+plt.savefig("{0}/04_{1}_marker_genes_ranking_ductalSubCluster_eachClusterVsRest.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
+
+# Dataframe of ranked genes
+for g in ['ductal_cftrHigh_muc1Low', 'ductal_cftrLow_muc1High', 'ductal_other']:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ductalSubClusters'][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_rest.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
+
