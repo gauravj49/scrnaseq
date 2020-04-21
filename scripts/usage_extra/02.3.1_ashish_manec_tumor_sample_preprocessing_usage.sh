@@ -73,29 +73,36 @@ do
 
   samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:1-313'| bamtools filter -tag nM:i:0 -in - | samtools view -h | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_humanMyc_cellIDs.txt
 
+  # Filter for nM tag with mismatches more than 1
+  samtools view ${sampledir}/possorted_genome_bam.bam '15:61985922-61989908'| egrep -vb "nM:i:0|nM:i:1" | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+
   samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:313-424'| bamtools filter -tag nM:i:0 -in - | samtools view -h | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_gap_cellIDs.txt
 
   samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:424-985'| bamtools filter -tag nM:i:0 -in - | samtools view -h | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_ires_cellIDs.txt
 
   samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:985-2550'| bamtools filter -tag nM:i:0 -in - | samtools view -h | LC_ALL=C grep -F -f ${sampledir}/barcodes.tsv | datamash transpose --no-strict -W | grep 'CB' | datamash transpose --no-strict -W | grep -Po 'CB:Z:[ACTG\-0-9]*'| sed 's/CB:Z://'| sort -u > ${sampledir}/${t}_hgMycIresCd2_humanCd2_cellIDs.txt
-
 done
 
-# Merge cell IDs into one file
-cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_cellIDs.txt > /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
+# 73 /media/rad/HDD2/temp_manec/bulk997_mouse_MmHgMycIresCd2/outs/bulk997_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+# 192 /media/rad/HDD2/temp_manec/bulk1001_mouse_MmHgMycIresCd2/outs/bulk1001_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+# 112 /media/rad/HDD2/temp_manec/bulk1018_mouse_MmHgMycIresCd2/outs/bulk1018_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+# 25 /media/rad/HDD2/temp_manec/stomach1001_mouse_MmHgMycIresCd2/outs/stomach1001_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
 
-for t in  humanMyc gap ires humanCd2;
+# Merge cell IDs into one file
+cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_cellIDs.txt /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt | sort -u > /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
+
+# 1832 /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
+
+for t in  humanMyc humanMycMappedToMouseMyc gap ires humanCd2;
 do 
   cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_${t}_cellIDs.txt > /media/rad/HDD2/temp_manec/hgMycIresCd2_${t}_cellIDs.txt
 done
 
-
-# Get counts of all nM flags
-# samtools view -b ${sampledir}/possorted_genome_bam.bam 'hgMycIresCd2:1-2550' | awk '{print $16}' | awk '{count[$1]++} END {for(j in count) print count[j], j}' | sort -nr
-
-# Get the sepearate humanMyc, IRES and humanCD2 cell barcodes
-
-
+# 262 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMyc_cellIDs.txt
+# 402 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+# 584 /media/rad/HDD2/temp_manec/hgMycIresCd2_gap_cellIDs.txt
+# 882 /media/rad/HDD2/temp_manec/hgMycIresCd2_ires_cellIDs.txt
+# 1467 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt
 
 ################## DOCS #####################
 # # cut -f1-2 GRCm38_primary_assembly_hgMycIresCd2.fa.fai

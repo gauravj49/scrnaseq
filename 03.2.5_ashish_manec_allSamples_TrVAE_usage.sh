@@ -527,15 +527,15 @@ adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir,
 # Using TrVAE for batch correction
 ############################################################
 trvaeBCadata = adata.copy() # (5885, 11023)
+# adata = trvaeBCadata.copy() # (5885, 11023)
 
 # 6) Plot UMAP for all the tumor cells 
 # Color the cells that have human myc and ires
 cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
 cl  = sum(cellBarCodes, [])
 ucl = get_unique_list(cl)
 # In [34]: len(ucl)
-# Out[34]: 1743
+# Out[34]: 1832
 
 mylist = adata.obs.index.values
 humaniresmyc = list()
@@ -557,6 +557,50 @@ sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap,
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
 sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# --------------------------------------------------------
+# Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
+# Unique cell barcode list of list
+ucblofl = list()
+ucbd    = defaultdict(list)
+for t in ['humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2']:
+  # Cell barcode data frame
+  cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_{0}_cellIDs.txt'.format(t), sep="\t", header=None).values.tolist()
+  # Unique cell barcode list
+  ucbl = get_unique_list(sum(cbDF, []))
+  ucbd[t] = ucbl
+  ucblofl.append(ucbl)
+  print(len(ucbl))
+
+  # Add the flag to adata (Unique cell barcode flag list)
+  ucbfl = list()
+  for e in mylist: 
+    flag = 0
+    for s in ucbl: 
+        if s in e: 
+            flag = 1 
+            break
+    ucbfl.append(flag)
+  adata.obs[t] = ucbfl
+
+import upsetplot
+from upsetplot import from_memberships, from_contents
+upsetContent = from_contents(ucbd)
+memberships  = from_memberships(ucblofl)
+
+fig = plt.figure(figsize=(30,10))
+upsetplot.plot(upsetContent, sum_over=False,show_counts='%d', fig=fig)
+plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Plot all hgMycIresCd2 vector components in separate UMAP
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('hgMycIresCd2 vector components')
+# 2D projection
+sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
+plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_Components_UMAP_2D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# 3D projection
+sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_Components_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ##################################################################
 # 7) Clustering
