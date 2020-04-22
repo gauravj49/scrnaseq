@@ -24,8 +24,9 @@ import matplotlib
 # matplotlib.use('TkAgg')
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D # for 3D projection
-
+from mpl_toolkits.mplot3d import Axes3D      # for 3D projection
+from matplotlib.colors import ListedColormap # for sc.palette to colormap
+from itertools import combinations           # pairwise combinations
 
 # Reset random state
 np.random.seed(2105)
@@ -602,6 +603,20 @@ plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_Components_UMAP_2D.png".for
 sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_Tumor_hgMycIresCd2_Components_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
+# Get tumor cells per tissue (and in percentage)
+tumorDF = adata.obs[['batch','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2','hgMycIresCd2']].copy()
+# Replace batch number with batch names
+tumorDF.replace({'batch': tissueIdDict}, inplace=True)
+# Remove index for groupby
+tumorDF.reset_index(drop=True, inplace=True)
+
+# Get the number of cells for each cluster in every tissue
+ncellstumorDF = tumorDF.groupby(['batch']).sum()
+ncellstumorDF.to_csv("{0}/03_{1}_tumorComponents_per_tissueid.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="tissueID")
+
+
+
+
 ##################################################################
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -621,12 +636,6 @@ sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105
 
 # Number of cells in each cluster
 # adata.obs['louvain_r1.5'].value_counts()                                                                                                                     # 0     821
-
-# 4.3) Visualizations
-# Calculations for the visualizations
-# sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-# sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
-# sc.tl.umap(adata, random_state = 2105, n_components=3)
 
 # Plot visualizations
 # Visualize the clustering and how this is reflected by different technical covariates
@@ -664,7 +673,37 @@ ax = fig.add_subplot(1, 2, 2, projection='3d');
 sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# 7.2) Marker genes & cluster annotation
+# 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Convert palette into colormap
+clcmap = ListedColormap(sc.pl.palettes.vega_20)
+# Get the DF of tissue and clusters
+clusterBatchDF = adata.obs[['batch','{0}'.format(cluster_key)]].copy()
+# Replace batch number with batch names
+clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
+# Remove index for groupby
+clusterBatchDF.reset_index(drop=True, inplace=True)
+# Get the number of cells for each cluster in every tissue
+ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','{0}'.format(cluster_key)]).size()
+# Get the percent of cells for each cluster in every tissue 
+pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['{0}'.format(cluster_key)], values=clusterBatchDF['{0}'.format(cluster_key)], aggfunc='count', normalize='index')
+
+# Plot the barplots
+fig = plt.figure(figsize=(16,6)); fig.suptitle("Cells for each {0} in each tissue".format(cluster_key))
+# plot numbers of cells
+ax = fig.add_subplot(1, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+# plot percent of cells
+ax = fig.add_subplot(1, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+plt.tight_layout() # For non-overlaping subplots
+plt.savefig("{0}/03_normTrVAE_{1}_clustering_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+
+##################################################################
+# 8.1) Marker genes & cluster annotation
 # Calculate marker genes
 sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes')
 
@@ -683,6 +722,8 @@ markersDF    = pd.read_csv(marker_file, sep="\t")
 marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
+markerexp = marker_gene_expression(adata, marker_genes_cellTypes, gene_symbol_key=None, partition_key='louvain_r0.5')
+
 # For mouse cell atlas marker genes
 ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
 ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
@@ -690,121 +731,124 @@ ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
 ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
+# l = ['a', 'b', 'c', 'd', 'f']
+# d = {'A':['a','x','c'], 'B':['c','d'],'C':['x','y']}
+
+# for k,v in d.items():
+#   nv = [x for x in v if x in l]
+#   d[k] = nv
+
+# Get all the gene names in the adata object
+genespresent = adata.var.index.values.tolist()
+
 # Generate the UMAPs for each marker categories
 for k,v in marker_genes_cellTypes.items():
-  print("- {0}: {1}".format(k,v))
-  ids = np.in1d(adata.var_names, marker_genes_cellTypes[k])
+  print("\n- Original list {0}: {1}".format(k,v))
+  validgenes = [x for x in v if x in genespresent]
+  ids = np.in1d(adata.var_names,validgenes)
+  print("- Genes present {0}: {1}".format(k,validgenes))
+
+  ngenes = len(validgenes)
+  nrows  = ngenes + 2
   adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  fig = plt.figure(figsize=(16,13))
-  fig.suptitle('Stomach_marker_list_V1')
-  # 2D projection
-  ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-  
-  ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,v),subplot_title_width)),fontsize= subplot_title_fontsize)
-  # 3D projection
-  ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-  ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,v),subplot_title_width)),fontsize= subplot_title_fontsize)
+
+  fig = plt.figure(figsize=(14,6*nrows))
+  # fig.suptitle('Stomach_marker_list_V1')
+  # Plot cluster
+  ax = fig.add_subplot(nrows, 2, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+  ax = fig.add_subplot(nrows, 2, 2, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+
+  # Plots mean marker genes
+  ax = fig.add_subplot(nrows, 2, 3);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+  ax = fig.add_subplot(nrows, 2, 4, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+
+  # Plot individual marker genes
+  m=5; n=6
+  for i,mgene in enumerate(validgenes):
+    # print(i+m, i+n, mgene)
+    ax = fig.add_subplot(nrows, 2, i+m);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 2, i+n, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    m+=1; n+=1
+
   plt.tight_layout()
   plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Generate the UMAPs for each marker categories
-plt.figure(figsize=(100,8))
 for k,v in ma_marker_genes.items():
-  print("- {0}: {1}".format(k,v))
-  ids = np.in1d(adata.var_names, ma_marker_genes[k])
-  adata.obs['{0}_ma_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-  fig = plt.figure(figsize=(16,13))
-  fig.suptitle('Stomach_marker_list_mouse_cellatlas_V1')
-  # 2D projection
-  ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-  ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_ma_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,v),subplot_title_width)),fontsize= subplot_title_fontsize)
-  # 3D projection
-  ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-  ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_ma_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,v),subplot_title_width)),fontsize= subplot_title_fontsize)
+  print("\n- Original list {0}: {1}".format(k,v))
+  validgenes = [x for x in v if x in genespresent]
+  ids = np.in1d(adata.var_names,validgenes)
+  print("- Genes present {0}: {1}".format(k,validgenes))
+
+  ngenes = len(validgenes)
+  nrows  = ngenes + 2
+  adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
+
+  fig = plt.figure(figsize=(14,6*nrows))
+  # fig.suptitle('Stomach_marker_list_V1')
+  # Plot cluster
+  ax = fig.add_subplot(nrows, 2, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+  ax = fig.add_subplot(nrows, 2, 2, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+
+  # Plots mean marker genes
+  ax = fig.add_subplot(nrows, 2, 3);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+  ax = fig.add_subplot(nrows, 2, 4, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+
+  # Plot individual marker genes
+  m=5; n=6
+  for i,mgene in enumerate(validgenes):
+    # print(i+m, i+n, mgene)
+    ax = fig.add_subplot(nrows, 2, i+m);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 2, i+n, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    m+=1; n+=1
+
   plt.tight_layout()
   plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
-
-# Plot Final Marker genes
-# Calculate marker genes
-sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes_louvain')
-# Plot marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes_louvain', fontsize=12, show=False)
-plt.savefig("{0}/{1}_louvain_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Erythrocytes
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Hbb-bs', 'Hba-a1','Hba-a2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Erythrocytes') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Restin
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'S100a8','S100a9'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Restin') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Endothelial/Epithelial_Igfbp3⁺
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Egfl7','Sparc', 'Col4a1','Plvap', 'Cd93','Ifitm3','Esam', 'Cdh5', 'Igfbp3','Plpp3','Kdr','Sptbn1'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial_Epithelial_Igfbp3pos') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Endothelial
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Plvap', 'Cd34', 'Ctla2a','Cd93','Ramp2','Eng'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Endothelial') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Acinar
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Cel', 'Pnliprp1', 'Clps'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Acinar') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Pancreas (Identified from louvain_r15_marker_genes_ranking)
-# This particular plot is providing no useful information
-# Check: https://www.proteinatlas.org/ENSG00000125691-RPL23/summary/rna
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Tpt1','Eef1b2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Pancreas') , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Cluster 4
-sc.pl.umap(adata, color=["{0}".format(cluster_key),'Cel', 'Pnliprp1', 'Igfbp2', 'Tnni3', 'Clps', 'Vtn', 'Lars2', 'Npm1', 'Mir6236', 'Slc25a4', 'Eif5a', 'Eef1a1', 'Phgdh', 'Rpl4', 'Pcbd1', 'Tmem97', 'Nudc', 'Aldoa', 'Ncl', 'Ak2'], use_raw=False, color_map=mymap, size=50, legend_loc='on data', edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/30_{1}_manually_annotated_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, 'Cluster4') , bbox_inches='tight', dpi=175); plt.close('all')
-
 
 # Save the louvain information in external file
 louvainsDF = pd.DataFrame(adata.obs[cluster_key])
 louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
 
-#---------------------------------------------------------------------
+# 7.5) Save the cellType assigned adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
+
+################################################################################
+# adata = markeradata.copy()
+
+# 8) CellType assignments
+# 8.1) Add new categories 
 # Categories to rename
 adata.obs[cluster_key].cat.categories
-
 # Get a new cell type column from the annotation of the louvain_r0.5 clusters
 adata.obs['cellType'] = adata.obs[cluster_key]
-
 # Add new categories
-adata.obs['cellType'].cat.add_categories(['Tumor','Dendritic','Endothelial/Epithelial_Igfbp3⁺','Macrophages','Acinar','Fibroblasts','Erythrocytes','Pit_cells','Restin_like_gamma','Progenitor_at_neck'], inplace=True) 
-
+adata.obs['cellType'].cat.add_categories(['Tumor','Dendritic','Endothelial_Epithelial_Igfbp3pos','Macrophages','Unidentified','Fibroblasts','Erythrocytes','Restin_like_gamma','Progenitor_at_neck'], inplace=True) 
 # Get a new subcluster column
-# 0,1         = 'Pit_cells'
+# 0,1,4       = 'Unidentified'
 # 2           = 'Dendritic'
 # 3           = 'Endothelial/Epithelial_Igfbp3⁺'
-# 4           = 'Acinar'
 # 5           = 'Erythrocytes'
 # 7           = 'Macrophages'
 # 9           = 'Fibroblasts'
 # 10          = 'Restin_like_gamma'
 # 11          = 'Progenitor_at_neck'
 # 6,8,12      = 'Tumor'
-
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='2' ]  = 'Dendritic'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Endothelial/Epithelial_Igfbp3⁺'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='4' ]  = 'Acinar'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Endothelial_Epithelial_Igfbp3pos'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='5' ]  = 'Erythrocytes'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='7' ]  = 'Macrophages'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='9' ]  = 'Fibroblasts'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Restin_like_gamma'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='11']  = 'Progenitor_at_neck'
-adata.obs['cellType'].loc[(adata.obs['cellType']=='0')|(adata.obs['cellType']=='1')]  = 'Pit_cells'
+adata.obs['cellType'].loc[(adata.obs['cellType']=='0')|(adata.obs['cellType']=='1')|(adata.obs['cellType']=='4' )]  = 'Unidentified'
 adata.obs['cellType'].loc[(adata.obs['cellType']=='6')|(adata.obs['cellType']=='8')|(adata.obs['cellType']=='12')]  = 'Tumor'
-
 # Remove old categories
 adata.obs['cellType'].cat.remove_categories(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], inplace=True)
-
 # List new categories
 adata.obs['cellType'].cat.categories
-
 # Draw Umaps with the categories
 fig = plt.figure(figsize=(36,20))
 fig.suptitle('CellType UMAP')
@@ -816,17 +860,356 @@ ax = fig.add_subplot(2, 3, 3, projection='3d'); sc.pl.umap(adata                
 # Save the UMAP
 plt.savefig("{0}/03_normTrVAE_{1}_clustering_CellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=200); plt.close('all')
 
-# Calculate marker genes
+# 8.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Convert palette into colormap
+clcmap = ListedColormap(sc.pl.palettes.vega_20)
+# Get the DF of tissue and clusters
+clusterBatchDF = adataSubGroup.obs[['batch','cellType']].copy()
+# Replace batch number with batch names
+clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
+# Remove index for groupby
+clusterBatchDF.reset_index(drop=True, inplace=True)
+# Get the number of cells for each cluster in every tissue
+ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','cellType']).size()
+# Get the percent of cells for each cluster in every tissue 
+pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['cellType'], values=clusterBatchDF['cellType'], aggfunc='count', normalize='index')
+
+# Plot the barplots
+fig = plt.figure(figsize=(16,6)); fig.suptitle("Cells for each {0} in each tissue".format('cellType'))
+# plot numbers of cells
+ax = fig.add_subplot(1, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+# plot percent of cells
+ax = fig.add_subplot(1, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='cellType', title_fontsize=12)
+plt.tight_layout() # For non-overlaping subplots
+plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_tissueID_cellType_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+
+# 8.3) Calculate marker genes (one vs. rest)
 sc.tl.rank_genes_groups(adata, groupby='cellType', key_added='rank_genes')
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_{2}_marker_genes_ranking_cellType.png".format(plotsDir, bname, 'cellType') , bbox_inches='tight', dpi=175); plt.close('all')
 
+# 8.4) Calculate pairwise marker genes list
+# Get all cellTypes into the list
+cellTypeCategories = adata.obs['cellType'].cat.categories.tolist()
+# Get the list of all unique pairwise combinations
+cellTypePairComb = [comb for comb in combinations(cellTypeCategories, 2)]
+# Get pairwise plots dir
+pwPlotsDir = "{0}/rankedGenes/allCategories".format(plotsDir); create_dir(pwPlotsDir)
+# Get pairwise data dir
+pwDataDir  = "{0}/rankedGenes/allCategories".format(dataDir); create_dir(pwDataDir)
+# Calculate pairwise marker genes  
+for grp,ref in cellTypePairComb:
+  print("- Calculating pairwise marker genes for group_v_reference: {0}_v_{1}".format(grp, ref))
+  # Get genes ranking
+  keyName = 'rank_genes_{0}_v_{1}'.format(grp,ref)
+  sc.tl.rank_genes_groups(adata, groupby='cellType', groups=[grp], key_added=keyName, reference=ref, n_genes=adata.shape[1])
+  # Plot top 20 ranked genes
+  sc.pl.rank_genes_groups(adata, key=keyName, groups=[grp], fontsize=12, show=False)
+  # Save it in a figure
+  plt.savefig("{0}/04_{1}_all_cellType_{2}_v_{3}.png".format(pwPlotsDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
+  # Get the dataframe of DE parameters
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns[keyName][n])[grp]
+  # Save the dataframe
+  ngDF.to_csv("{0}/04_{1}_{2}.txt".format(pwDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
+
 # 7.5) Save the cellType assigned adata into a file
 # Write the adata and cadata object to file
-adatafile  = "{0}/04_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+adatafile  = "{0}/05_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+
+# ############################ SubCluster Analysis #################################
 # # Read back the corrected adata object
-# adatafile  = "{0}/04_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); cellTypeadata  = sc.read_h5ad(adatafile)
+# adatafile  = "{0}/05_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); cellTypeadata  = sc.read_h5ad(adatafile)
+# adata = cellTypeadata.copy()
+
+# 9.1) Get the sub group ann data object 
+# Remove the cells that are not needed
+# 2           = 'Dendritic'
+# 3           = 'Endothelial_Epithelial_Igfbp3pos'
+# 5           = 'Erythrocytes'
+# 7           = 'Macrophages'
+# 9           = 'Fibroblasts'
+adataSubGroup = adata[~((adata.obs['cellType']=='Dendritic') | (adata.obs['cellType']=='Endothelial_Epithelial_Igfbp3pos') |(adata.obs['cellType']=='Erythrocytes') | (adata.obs['cellType']=='Macrophages') | (adata.obs['cellType']=='Fibroblasts'))].copy()
+# adataSubGroup.shape # (3711, 9606)
+
+# Calculations for the visualizations
+sc.pp.neighbors(adataSubGroup, random_state = 2105, n_neighbors=7, use_rep = "mmd_latent")
+sc.tl.umap(adataSubGroup, random_state = 2105, n_components=3)
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('TissueID')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); sc.pl.umap(adataSubGroup                , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE UMAP")
+plt.tight_layout()
+plt.savefig("{0}/05_subGroup_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# 9.2) Perform clustering - using highly variable genes
+sc.tl.louvain(adataSubGroup, key_added='louvain', random_state=2105)
+sc.tl.louvain(adataSubGroup, resolution=1, key_added='louvain_r1', random_state=2105)
+sc.tl.louvain(adataSubGroup, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
+sc.tl.louvain(adataSubGroup, resolution=2.0, key_added='louvain_r2', random_state=2105)
+for i in np.linspace(0.1,0.9,9):
+    try:
+        sc.tl.louvain(adataSubGroup, resolution=i, key_added='louvain_r{0}'.format(i), random_state=2105)
+        print(adataSubGroup.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
+    except:
+        print("- Error in r: {0}".format(i))
+sc.tl.louvain(adataSubGroup, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(adataSubGroup, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
+
+# Visualize the clustering and how this is reflected by different technical covariates
+sc.pl.umap(adataSubGroup, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/05_subGroup_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adataSubGroup, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/05_subGroup_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Plot tumor cells
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('hgMycIresCd2')
+ax = fig.add_subplot(1, 2, 1); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(1, 2, 2, projection='3d'); sc.pl.umap(adataSubGroup, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/05_subGroup_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Subcluster keys
+cluster_key   = "louvain_r0.5"
+cluster_bname = "louvain_r05"
+
+# Louvain UMAPs
+fig = plt.figure(figsize=(16,6))
+fig.suptitle("{0} UMAP".format(cluster_key))
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adataSubGroup, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 9.3) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Convert palette into colormap
+clcmap = ListedColormap(sc.pl.palettes.vega_20)
+# Get the DF of tissue and clusters
+clusterBatchDF = adataSubGroup.obs[['batch','{0}'.format(cluster_key)]].copy()
+# Replace batch number with batch names
+clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
+# Remove index for groupby
+clusterBatchDF.reset_index(drop=True, inplace=True)
+# Get the number of cells for each cluster in every tissue
+ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','{0}'.format(cluster_key)]).size()
+# Get the percent of cells for each cluster in every tissue 
+pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['{0}'.format(cluster_key)], values=clusterBatchDF['{0}'.format(cluster_key)], aggfunc='count', normalize='index')
+
+# Plot the barplots
+fig = plt.figure(figsize=(16,6)); fig.suptitle("Cells for each {0} in each tissue".format(cluster_key))
+# plot numbers of cells
+ax = fig.add_subplot(1, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+# plot percent of cells
+ax = fig.add_subplot(1, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+plt.tight_layout() # For non-overlaping subplots
+plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 9.4) Marker genes & cluster annotation
+# Calculate marker genes
+sc.tl.rank_genes_groups(adataSubGroup, groupby=cluster_key, key_added='rank_genes')
+
+# Plot marker genes
+sc.pl.rank_genes_groups(adataSubGroup, key='rank_genes', fontsize=12, show=False)
+plt.savefig("{0}/05_subGroup_{1}_{2}_marker_genes_ranking.png".format(plotsDir, bname, cluster_key) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Annotation of cluster r_0.5 with known marker genes
+markerDir = "{0}/subGroup/markerDir".format(plotsDir); create_dir(markerDir)
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# Read the marker genes into a pandas dataframe
+marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V1.txt'
+markersDF    = pd.read_csv(marker_file, sep="\t")
+marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+
+# For mouse cell atlas marker genes
+ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
+ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
+ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
+ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+
+# Get all the gene names in the adataSubGroup object
+genespresent = adataSubGroup.var.index.values.tolist()
+
+# Generate the UMAPs for each marker categorie
+for k,v in marker_genes_cellTypes.items():
+  print("\n- Original list {0}: {1}".format(k,v))
+  validgenes = [x for x in v if x in genespresent]
+  ids = np.in1d(adataSubGroup.var_names,validgenes)
+  print("- Genes present {0}: {1}".format(k,validgenes))
+
+  ngenes = len(validgenes)
+  nrows  = ngenes + 2
+  adataSubGroup.obs['{0}_marker_expr'.format(k)] = adataSubGroup.X[:,ids].mean(1)
+
+  fig = plt.figure(figsize=(14,6*nrows))
+  # fig.suptitle('Stomach_marker_list_V1')
+  # Plot cluster
+  ax = fig.add_subplot(nrows, 2, 1);                  sc.pl.umap(adataSubGroup, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+  ax = fig.add_subplot(nrows, 2, 2, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+
+  # Plots mean marker genes
+  ax = fig.add_subplot(nrows, 2, 3);                  sc.pl.umap(adataSubGroup, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+  ax = fig.add_subplot(nrows, 2, 4, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+
+  # Plot individual marker genes
+  m=5; n=6
+  for i,mgene in enumerate(validgenes):
+    # print(i+m, i+n, mgene)
+    ax = fig.add_subplot(nrows, 2, i+m);                  sc.pl.umap(adataSubGroup, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 2, i+n, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    m+=1; n+=1
+
+  plt.tight_layout()
+  plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Generate the UMAPs for each marker categories
+for k,v in ma_marker_genes.items():
+  print("\n- Original list {0}: {1}".format(k,v))
+  validgenes = [x for x in v if x in genespresent]
+  ids = np.in1d(adataSubGroup.var_names,validgenes)
+  print("- Genes present {0}: {1}".format(k,validgenes))
+
+  ngenes = len(validgenes)
+  nrows  = ngenes + 2
+  adataSubGroup.obs['{0}_marker_expr'.format(k)] = adataSubGroup.X[:,ids].mean(1)
+
+  fig = plt.figure(figsize=(14,6*nrows))
+  # fig.suptitle('Stomach_marker_list_V1')
+  # Plot cluster
+  ax = fig.add_subplot(nrows, 2, 1);                  sc.pl.umap(adataSubGroup, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+  ax = fig.add_subplot(nrows, 2, 2, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+
+  # Plots mean marker genes
+  ax = fig.add_subplot(nrows, 2, 3);                  sc.pl.umap(adataSubGroup, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+  ax = fig.add_subplot(nrows, 2, 4, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+
+  # Plot individual marker genes
+  m=5; n=6
+  for i,mgene in enumerate(validgenes):
+    # print(i+m, i+n, mgene)
+    ax = fig.add_subplot(nrows, 2, i+m);                  sc.pl.umap(adataSubGroup, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 2, i+n, projection='3d'); sc.pl.umap(adataSubGroup                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+    m+=1; n+=1
+
+  plt.tight_layout()
+  plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Save the louvain information in external file
+louvainsDF = pd.DataFrame(adataSubGroup.obs[cluster_key])
+louvainsDF.to_csv("{0}/05_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
+
+# 9.5) Save the cellType assigned adataSubGroup into a file
+# Write the adataSubGroup and cadataSubGroup object to file
+adataSubGroupfile  = "{0}/06_markerGenes_{1}_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
+# # Read back the corrected adataSubGroup object
+# adataSubGroupfile  = "{0}/06_markerGenes_{1}_adataSubGroup.h5ad" .format(dataDir, projName); markeradataSubGroup  = sc.read_h5ad(adataSubGroupfile)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ############################################################
 # 8) Analysis of Tumor cluster
