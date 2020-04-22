@@ -921,7 +921,7 @@ for grp,ref in cellTypePairComb:
   # Save the dataframe
   ngDF.to_csv("{0}/04_{1}_{2}.txt".format(pwDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
 
-# 7.5) Save the cellType assigned adata into a file
+# 8.5) Save the cellType assigned adata into a file
 # Write the adata and cadata object to file
 adatafile  = "{0}/05_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 
@@ -980,18 +980,31 @@ ax = fig.add_subplot(1, 2, 2, projection='3d'); sc.pl.umap(adataSubGroup, ax=ax,
 plt.savefig("{0}/05_subGroup_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Subcluster keys
-cluster_key   = "louvain_r0.5"
-cluster_bname = "louvain_r05"
+cluster_key            = "louvain_r0.5"
+cluster_bname          = "louvain_r05"
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key_groups = adataSubGroup.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adataSubGroup.obs['subCellType'].value_counts().to_dict()
 
 # Louvain UMAPs
-fig = plt.figure(figsize=(16,6))
+ncols  = len(cluster_key_groups) + 1
+fig = plt.figure(figsize=(7*ncols, 14))
 fig.suptitle("{0} UMAP".format(cluster_key))
-# 2D projection
-ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
-# 3D projection
-ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adataSubGroup, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+# Main Louvain Cluster
+ax = fig.add_subplot(2, ncols, 1); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(2, ncols, 2, projection='3d'); sc.pl.umap(adataSubGroup, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+# Partial visualizaton of a subset of groups in embedding
+m=3; n=4
+for i,b in enumerate(cluster_key_groups):
+  print(i, b)
+  ax = fig.add_subplot(2, ncols, i+m);                  sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  ax = fig.add_subplot(2, ncols, i+n, projection='3d'); sc.pl.umap(adataSubGroup                 , ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  m+=1; n+=1
+
+plt.tight_layout()
 plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 9.3) Plot separate bar plots, coloured in by cluster annotation, for each tissue
@@ -1115,273 +1128,234 @@ for k,v in ma_marker_genes.items():
   plt.tight_layout()
   plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
-# Save the louvain information in external file
-louvainsDF = pd.DataFrame(adataSubGroup.obs[cluster_key])
-louvainsDF.to_csv("{0}/05_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
-
 # 9.5) Save the cellType assigned adataSubGroup into a file
 # Write the adataSubGroup and cadataSubGroup object to file
 adataSubGroupfile  = "{0}/06_markerGenes_{1}_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
 # # Read back the corrected adataSubGroup object
 # adataSubGroupfile  = "{0}/06_markerGenes_{1}_adataSubGroup.h5ad" .format(dataDir, projName); markeradataSubGroup  = sc.read_h5ad(adataSubGroupfile)
 
+################################################################################
+# adataSubGroup = markeradataSubGroup.copy()
+
+# 10) subCellType assignments
+# Subcluster keys
+cluster_key            = "louvain_r0.5"
+cluster_bname          = "louvain_r05"
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# 10.1) Add new categories 
+# Categories to rename
+adataSubGroup.obs[cluster_key].cat.categories
+# Get a new cell type column from the annotation of the louvain_r0.5 clusters
+adataSubGroup.obs['subCellType'] = adataSubGroup.obs[cluster_key]
+# Add new categories
+adataSubGroup.obs['subCellType'].cat.add_categories(['Unknown0','Unknown1','Unknown2','Unknown3','Unknown4','Unknown5','ECL_RestinLikeGamma_PitProgenitor','Progenitor_at_neck','Tumor'], inplace=True) 
+# Get a new subcluster column
+# 0           = 'Unknown0'
+# 1           = 'Unknown1'
+# 2           = 'Unknown2'
+# 3           = 'Unknown3'
+# 4           = 'Unknown4'
+# 8           = ['ECL','Restin_like_gamma','Pit_progenitor',]
+# 9           = ['Progenitor_at_neck','Pit_mucous']
+# 5,6,7,10    = 'Tumor'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='0']  = 'Unknown0'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='1']  = 'Unknown1'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='2']  = 'Unknown2'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='3']  = 'Unknown3'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='4']  = 'Unknown4'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='8']  = 'ECL_RestinLikeGamma_PitProgenitor'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='9']  = 'Progenitor_at_neck'
+adataSubGroup.obs['subCellType'].loc[(adataSubGroup.obs['subCellType']=='5')|(adataSubGroup.obs['subCellType']=='6')|(adataSubGroup.obs['subCellType']=='7')|(adataSubGroup.obs['subCellType']=='10')]  = 'Tumor'
+# Remove old categories
+adataSubGroup.obs['subCellType'].cat.remove_categories(adataSubGroup.obs[cluster_key].cat.categories.tolist(), inplace=True)
+# List new categories
+adataSubGroup.obs['subCellType'].cat.categories
+# Draw Umaps with the categories
+# Subcluster keys
+cluster_key            = "subCellType"
+cluster_bname          = "subCellType"
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key_groups = adataSubGroup.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adataSubGroup.obs['subCellType'].value_counts().to_dict()
+
+def adjust_title(ax):
+  '''https://stackoverflow.com/questions/55197674/matplotlib-prevent-subplot-title-from-being-wider-than-subplot'''
+  title = ax.title
+  ax.figure.canvas.draw()
+  def _get_t():
+      ax_width = ax.get_window_extent().width
+      ti_width = title.get_window_extent().width
+      return ax_width/ti_width
+
+  while _get_t() <= 1 and title.get_fontsize() > 1:        
+      title.set_fontsize(title.get_fontsize()-1)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-############################################################
-# 8) Analysis of Tumor cluster
-############################################################
-cellTypeadata = adata.copy() # (5885, 11023)
-
-# 8.1) Subcluster Tumors
-sc.tl.louvain(adata, restrict_to=('cellType', ['Tumor']), resolution=0.2, key_added='cellType_Tumor_sub')
-#Show the new clustering
-if 'cellType_Tumor_sub_colors' in adata.uns:
-    del adata.uns['cellType_Tumor_sub_colors']
 
 # Louvain UMAPs
-fig = plt.figure(figsize=(16,6))
-fig.suptitle("cellType_Tumor_sub UMAP")
-# 2D projection
-ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color='cellType_Tumor_sub', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
-# 3D projection
-ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color='cellType_Tumor_sub', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
-plt.savefig("{0}/04_{1}_tumor_sub_cluster.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+ncols  = len(cluster_key_groups) + 1
+fig = plt.figure(figsize=(8*ncols, 14))
+fig.suptitle("{0} UMAP".format(cluster_key))
+# Main Louvain Cluster
+ax = fig.add_subplot(2, ncols, 1); sc.pl.umap(adataSubGroup, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, show=False); adjust_title(ax)
+ax = fig.add_subplot(2, ncols, 2, projection='3d'); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False); adjust_title(ax)
+# Partial visualizaton of a subset of groups in embedding
+m=3; n=4
+for i,b in enumerate(cluster_key_groups):
+  print(i, b)
+  ax = fig.add_subplot(2, ncols, i+m);                  sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b])); adjust_title(ax)
+  ax = fig.add_subplot(2, ncols, i+n, projection='3d'); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9,  projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b])); adjust_title(ax)
+  m+=1; n+=1
 
-#Get the new marker genes
-sc.tl.rank_genes_groups(adata, groupby='cellType_Tumor_sub', key_added='rank_genes_cellType_Tumor_sub')
+plt.tight_layout()
+plt.savefig("{0}/05_subGroup_{1}_clustering_subCellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=200); plt.close('all')
 
-#Plot the new marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes_cellType_Tumor_sub', groups=['Tumor,0','Tumor,1','Tumor,2'], fontsize=12, show=False)
-plt.savefig("{0}/{1}_cellType_Tumor_sub_marker_genes_ranking.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-# Finished on 2020-04Apr-20 00:55 am
+# 10.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Convert palette into colormap
+clcmap = ListedColormap(adataSubGroup.uns['subCellType_colors'])
+# Get the DF of tissue and clusters
+clusterBatchDF = adataSubGroup.obs[['batch','subCellType']].copy()
+# Replace batch number with batch names
+clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
+# Remove index for groupby
+clusterBatchDF.reset_index(drop=True, inplace=True)
+# Remove unused categories (0,1,..)
+clusterBatchDF['subCellType'] = clusterBatchDF.subCellType.cat.remove_unused_categories()
+# Get the number of cells for each cluster in every tissue
+ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','subCellType']).size()
+# Get the percent of cells for each cluster in every tissue 
+pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['subCellType'], values=clusterBatchDF['subCellType'], aggfunc='count', normalize='index')
+
+# Plot the barplots
+fig = plt.figure(figsize=(16,6)); fig.suptitle("Cells for each {0} in each tissue".format('subCellType'))
+# plot numbers of cells
+ax = fig.add_subplot(1, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells", edgecolor=None)
+# plot percent of cells
+ax = fig.add_subplot(1, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='subCellType', title_fontsize=12)
+plt.tight_layout() # For non-overlaping subplots
+plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_tissueID_subCellType_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 10.3) Calculate marker genes (one vs. rest)
+sc.tl.rank_genes_groups(adataSubGroup, groupby='subCellType', key_added='rank_genes')
+# Plot marker genes
+sc.pl.rank_genes_groups(adataSubGroup, key='rank_genes', fontsize=12, show=False)
+plt.savefig("{0}/03_normTrVAE_{1}_{2}_marker_genes_ranking_subCellType.png".format(plotsDir, bname, 'subCellType') , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 10.4) Calculate pairwise marker genes list
+# Get all subCellTypes into the list
+subCellTypeCategories = adataSubGroup.obs['subCellType'].cat.categories.tolist()
+# Get the list of all unique pairwise combinations
+subCellTypePairComb = [comb for comb in combinations(subCellTypeCategories, 2)]
+# Get pairwise plots dir
+pwsgPlotsDir = "{0}/subGroup/rankedGenes".format(plotsDir); create_dir(pwsgPlotsDir)
+# Get pairwise data dir
+pwsgDataDir  = "{0}/subGroup/rankedGenes".format(dataDir); create_dir(pwsgDataDir)
+# Calculate pairwise marker genes  
+for grp,ref in subCellTypePairComb:
+  print("- Calculating pairwise marker genes for group_v_reference: {0}_v_{1}".format(grp, ref))
+  # Get genes ranking
+  keyName = 'rank_genes_{0}_v_{1}'.format(grp,ref)
+  sc.tl.rank_genes_groups(adataSubGroup, groupby='subCellType', groups=[grp], key_added=keyName, reference=ref, n_genes=adataSubGroup.shape[1])
+  # Plot top 20 ranked genes
+  sc.pl.rank_genes_groups(adataSubGroup, key=keyName, groups=[grp], fontsize=12, show=False)
+  # Save it in a figure
+  plt.savefig("{0}/04_{1}_all_subCellType_{2}_v_{3}.png".format(pwsgPlotsDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
+  # Get the dataframe of DE parameters
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataSubGroup.uns[keyName][n])[grp]
+  # Save the dataframe
+  ngDF.to_csv("{0}/04_{1}_{2}.txt".format(pwsgDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 10.5) Save the subCellType assigned adataSubGroup into a file
+# Write the adataSubGroup and cadataSubGroup object to file
+adataSubGroupfile  = "{0}/07_subCellType_assigned_{1}_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
+
+############################################################
+# 11) Analysis of Tumor cluster in SubGroup
+############################################################
+subCellTypeadata = adataSubGroup.copy() # (5885, 11023)
+# adataSubGroup = subCellTypeadata.copy() # (5885, 11023)
+
+# 8.1) Subcluster Tumors
+sc.tl.louvain(adataSubGroup, restrict_to=('subCellType', ['Tumor']), resolution=0.2, key_added='subCellType_Tumor_sub')
+#Show the new clustering
+if 'subCellType_Tumor_sub_colors' in adataSubGroup.uns:
+    del adataSubGroup.uns['subCellType_Tumor_sub_colors']
+
+# Subcluster keys
+cluster_key            = "subCellType_Tumor_sub"
+cluster_bname          = "subCellType_Tumor_sub"
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key_groups = adataSubGroup.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adataSubGroup.obs[cluster_key].value_counts().to_dict()
+
+# Louvain UMAPs
+ncols  = len(cluster_key_groups) + 1
+fig = plt.figure(figsize=(7*ncols, 14))
+fig.suptitle("{0} UMAP".format(cluster_key))
+# Main Louvain Cluster
+ax = fig.add_subplot(2, ncols, 1);                  sc.pl.umap(adataSubGroup, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(2, ncols, 2, projection='3d'); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+# Partial visualizaton of a subset of groups in embedding
+m=3; n=4
+for i,b in enumerate(cluster_key_groups):
+  print(i, b)
+  ax = fig.add_subplot(2, ncols, i+m);                  sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  ax = fig.add_subplot(2, ncols, i+n, projection='3d'); sc.pl.umap(adataSubGroup, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  m+=1; n+=1
+
+plt.tight_layout()
+plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Get the new marker genes (one. vs. rest)
+sc.tl.rank_genes_groups(adataSubGroup, groupby='subCellType_Tumor_sub', key_added='rank_genes_subCellType_Tumor_sub')
+# Plot the new marker genes
+sc.pl.rank_genes_groups(adataSubGroup, key='rank_genes_subCellType_Tumor_sub', groups=['Tumor,0','Tumor,1','Tumor,2', 'Tumor,3'], fontsize=12, show=False)
+plt.savefig("{0}/06_subGroup_{1}_clustering_{2}_marker_genes_ranking.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 10.4) Calculate pairwise marker genes list
+# Get all subCellTypes into the list
+subCellTypeCategories = adataSubGroup.obs[cluster_key].cat.categories.tolist()
+# Get the list of all unique pairwise combinations
+subCellTypePairComb = [comb for comb in combinations(subCellTypeCategories, 2)]
+# Get pairwise plots dir
+tspwsgPlotsDir = "{0}/subGroup/rankedGenes/tumorSubCluster".format(plotsDir); create_dir(tspwsgPlotsDir)
+# Get pairwise data dir
+tspwsgDataDir  = "{0}/subGroup/rankedGenes/tumorSubCluster".format(dataDir); create_dir(tspwsgDataDir)
+# Calculate pairwise marker genes  
+for grp,ref in subCellTypePairComb:
+  print("- Calculating pairwise marker genes for group_v_reference: {0}_v_{1}".format(grp, ref))
+  # Get genes ranking
+  keyName = 'rank_genes_{0}_v_{1}'.format(grp,ref)
+  sc.tl.rank_genes_groups(adataSubGroup, groupby=cluster_key, groups=[grp], key_added=keyName, reference=ref, n_genes=adataSubGroup.shape[1])
+  # Plot top 20 ranked genes
+  sc.pl.rank_genes_groups(adataSubGroup, key=keyName, groups=[grp], fontsize=12, show=False)
+  # Save it in a figure
+  plt.savefig("{0}/04_{1}_all_subCellType_{2}_v_{3}.png".format(tspwsgPlotsDir, bname, grp, ref) , bbox_inches='tight'); plt.close('all')
+  # Get the dataframe of DE parameters
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataSubGroup.uns[keyName][n])[grp]
+  # Save the dataframe
+  ngDF.to_csv("{0}/04_{1}_{2}.txt".format(tspwsgDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 10.5) Save the subCellType assigned adataSubGroup into a file
+# Write the adataSubGroup and cadataSubGroup object to file
+adataSubGroupfile  = "{0}/08_{1}_subCellType_tumorSubCluster_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
+
+# Finished on 2020-04Apr-22 19:55
 #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-
-
-
-# 8.2) Get separate Tumor cluster analysis from 
-# Get the Tumor cluster anndata
-adataTumorSubCluster = adata[adata.obs['cellType'] == 'Tumor'] # (620, 9606)
-
-# Get the index of ductal subcluster
-tumorSubClusterDF = adataTumorSubCluster.to_df()
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Get the ratio of expression
-# pd.set_option('display.float_format', lambda x: '%.2f' % x)
-tumorSubClusterDF['CFTR_rank'] = tumorSubClusterDF['CFTR'].rank()
-tumorSubClusterDF['MUC1_rank'] = tumorSubClusterDF['MUC1'].rank()
-tumorSubClusterDF['rank_CFTR_minus_MUC1'] = tumorSubClusterDF.apply(lambda row: (row['CFTR_rank'] - row['MUC1_rank']), axis=1)
-# tumorSubClusterDF[['CFTR', 'MUC1', 'rank_CFTR_minus_MUC1']]
-
-# Get median for both genes
-# cftrMedianExp = np.float(tumorSubClusterDF['CFTR'].describe()[['50%']].values)
-# muc1MedianExp = np.float(tumorSubClusterDF['MUC1'].describe()[['50%']].values)
-chmlDuctalIdx  = tumorSubClusterDF[tumorSubClusterDF['rank_CFTR_minus_MUC1'] >= 100 ].index.tolist()                # 269
-clmhDuctalIdx  = tumorSubClusterDF[tumorSubClusterDF['rank_CFTR_minus_MUC1'] <= -100].index.tolist()                # 312
-otherDuctalIdx = tumorSubClusterDF.loc[~tumorSubClusterDF.index.isin(chmlDuctalIdx + clmhDuctalIdx)].index.tolist() # 329
-
-# print(len(chmlDuctalIdx))
-# print(len(clmhDuctalIdx))
-# print(len(otherDuctalIdx))
-
-# Get a new subcluster column
-adataTumorSubCluster.obs['subClusters'] = adataTumorSubCluster.obs['customClusters']
-
-# Add new categories
-adataTumorSubCluster.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
-
-# Get a new subcluster column
-adataTumorSubCluster.obs['subClusters'].loc[chmlDuctalIdx]  = adataTumorSubCluster.obs['subClusters'].loc[chmlDuctalIdx].replace('ductal','ductal_cftrHigh_muc1Low') 
-adataTumorSubCluster.obs['subClusters'].loc[clmhDuctalIdx]  = adataTumorSubCluster.obs['subClusters'].loc[clmhDuctalIdx].replace('ductal','ductal_cftrLow_muc1High') 
-adataTumorSubCluster.obs['subClusters'].loc[otherDuctalIdx] = adataTumorSubCluster.obs['subClusters'].loc[otherDuctalIdx].replace('ductal','ductal_other') 
-
-adataTumorSubCluster = adataTumorSubCluster[~((adataTumorSubCluster.obs['subClusters'] == 'ductal'))]
-
-# Visualize new subclusers
-sc.pl.umap(adataTumorSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-sc.pl.umap(adataTumorSubCluster, color=['subClusters'], palette=sc.pl.palettes.vega_10, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
-plt.savefig("{0}/04_norm_{1}_ductalSubClusters_UMAP_3D.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-
-# Mucin and CFTR enriched in clean ductal subpopulation
-sc.pl.umap(adataTumorSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', show=False)
-plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-sc.pl.umap(adataTumorSubCluster, color=['MUC1', 'CFTR', 'TFF1', 'CD44'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data', projection='3d', show=False)
-plt.savefig("{0}/04_{1}_marker_genes_mucin_cftr_enriched_ductal_subpopulation_3D_UMAPs.png".format(qcDir, bname) , bbox_inches='tight', dpi=300); plt.close('all')
-
-# In [10]: tumorSubClusterDF.shape
-# Out[10]: (910, 15120)
-ductalSubClusterRankDF   = tumorSubClusterDF[['CFTR', 'MUC1', 'CFTR_rank', 'MUC1_rank', 'rank_CFTR_minus_MUC1']]
-
-# Save the relevant data into an excel
-ductalSubClusterRankDF.to_csv("{0}/04_{1}_ductalSubClusters_gene_expression_ranks.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="CellId", float_format='%.4g')
-
-# Calculate ranked marker genes
-sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_cftrLow_muc1High', n_genes=adataTumorSubCluster.shape[1])
-sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_cftrLow_muc1High', groups=['ductal_cftrHigh_muc1Low','ductal_other'], fontsize=12, show=False)
-plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrLow_muc1High.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-
-sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_other'], key_added='rank_genes_ref_ductal_cftrHigh_muc1Low', reference='ductal_cftrHigh_muc1Low', n_genes=adataTumorSubCluster.shape[1])
-sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_cftrHigh_muc1Low', groups=['ductal_cftrLow_muc1High','ductal_other'], fontsize=12, show=False)
-plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_cftrHigh_muc1Low.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-
-sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], key_added='rank_genes_ref_ductal_other', reference='ductal_other', n_genes=adataTumorSubCluster.shape[1])
-sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ref_ductal_other', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low'], fontsize=12, show=False)
-plt.savefig("{0}/04_{1}_marker_genes_ranking_rank_genes_ref_ductal_other.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-
-# Dataframe of ranked genes
-for g in ['ductal_cftrHigh_muc1Low','ductal_other']:
-  ngDF = pd.DataFrame()
-  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
-    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_cftrLow_muc1High'][n])[g]
-  # Save dataframes
-  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_ductal_cftrLow_muc1High.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
-
-for g in ['ductal_cftrLow_muc1High', 'ductal_other']:
-  ngDF = pd.DataFrame()
-  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
-    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_cftrHigh_muc1Low'][n])[g]
-  # Save dataframes
-  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_cftrHigh_muc1Low.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
-
-for g in ['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High']:
-  ngDF = pd.DataFrame()
-  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
-    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ref_ductal_other'][n])[g]
-  # Save dataframes
-  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_{1}_rank_genes_{2}_over_ductal_other.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
-
-# Save the normalized, log transformed, batch and cell cycle corrected data
-# Add new categories
-adataCustom.obs['subClusters'] = adataCustom.obs['customClusters']
-adataCustom.obs['subClusters'].cat.add_categories(['ductal_cftrHigh_muc1Low','ductal_cftrLow_muc1High', 'ductal_other'], inplace=True) 
-adataCustom.obs['subClusters'].loc[chmlDuctalIdx]  = 'ductal_cftrHigh_muc1Low'
-adataCustom.obs['subClusters'].loc[clmhDuctalIdx]  = 'ductal_cftrLow_muc1High'
-adataCustom.obs['subClusters'].loc[otherDuctalIdx] = 'ductal_other'
-
-customClustersDF                              = adataCustom.to_df()
-customClustersDF['originalClusterAssignment'] = adataCustom.obs['Cluster']
-customClustersDF['Batch']                     = adataCustom.obs['Batch']
-customClustersDF['louvain_r1']                = adataCustom.obs['louvain_r1']
-customClustersDF['customClusters']            = adataCustom.obs['customClusters']
-customClustersDF['subClusters']               = adataCustom.obs['subClusters']
-customClustersDF.to_csv("{0}/04_normalizedRaw_T_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="PatId", float_format='%.2g')
-customClustersDF.T.to_csv("{0}/04_normalizedRaw_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
-
-
-################ Calculate ranked marker genes 
-# Get additional gene lists:
-# -CFTR high versus (Muc1 high and ductal other)
-# -Muc1 high versus (CFTR high and ductal other)
-# -Ductal other versus (CFTR high and Muc1 high)
-
-sc.tl.rank_genes_groups(adataTumorSubCluster, groupby='subClusters', key_added='rank_genes_ductalSubClusters', n_genes=adataTumorSubCluster.shape[1])
-sc.pl.rank_genes_groups(adataTumorSubCluster, key='rank_genes_ductalSubClusters', groups=['ductal_cftrLow_muc1High','ductal_cftrHigh_muc1Low', 'ductal_other'], fontsize=12, show=False)
-plt.savefig("{0}/04_{1}_marker_genes_ranking_ductalSubCluster_eachClusterVsRest.png".format(qcDir, bname) , bbox_inches='tight'); plt.close('all')
-
-# Dataframe of ranked genes
-for g in ['ductal_cftrHigh_muc1Low', 'ductal_cftrLow_muc1High', 'ductal_other']:
-  ngDF = pd.DataFrame()
-  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
-    ngDF[n] = pd.DataFrame(adataTumorSubCluster.uns['rank_genes_ductalSubClusters'][n])[g]
-  # Save dataframes
-  ngDF.to_csv("{0}/04_norm_{1}_ductalSubClusters_rank_genes_{2}_over_rest.txt".format(countsDir, projName,g), sep='\t', header=True, index=False, float_format='%.2g')
 
