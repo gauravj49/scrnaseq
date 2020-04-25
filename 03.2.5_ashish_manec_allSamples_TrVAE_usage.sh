@@ -117,8 +117,8 @@ adatas
 
 # Get the dictionary of tissue ids
 tissueIdDict =  {
-                    '0':'bulk1001', 
-                    '1':'bulk997', 
+                    '0':'bulk997', 
+                    '1':'bulk1001', 
                     '2':'bulk1018', 
                     '3':'stomach1001'
                 }
@@ -674,6 +674,28 @@ ax = fig.add_subplot(1, 2, 2, projection='3d');
 sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/03_normTrVAE_{1}_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
+
+# Louvain UMAPs
+ncols  = len(cluster_key_groups) + 1
+fig = plt.figure(figsize=(7*ncols, 14))
+fig.suptitle("{0} UMAP".format(cluster_key))
+# Main Louvain Cluster
+ax = fig.add_subplot(2, ncols, 1); sc.pl.umap(adata, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(2, ncols, 2, projection='3d'); sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+# Partial visualizaton of a subset of groups in embedding
+m=3; n=4
+for i,b in enumerate(cluster_key_groups):
+  print(i, b)
+  ax = fig.add_subplot(2, ncols, i+m);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  ax = fig.add_subplot(2, ncols, i+n, projection='3d'); sc.pl.umap(adata                 , ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+  m+=1; n+=1
+
+plt.tight_layout()
+plt.savefig("{0}/03_normTrVAE_{1}_clustering_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
 # 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
 # Convert palette into colormap
 clcmap = ListedColormap(sc.pl.palettes.vega_20)
@@ -718,12 +740,12 @@ subplot_title_fontsize = 12
 subplot_title_width    = 50
 
 # Read the marker genes into a pandas dataframe
-marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V1.txt'
+marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V2.txt'
 markersDF    = pd.read_csv(marker_file, sep="\t")
 marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
-markerexp = marker_gene_expression(adata, marker_genes_cellTypes, gene_symbol_key=None, partition_key='louvain_r0.5')
+# markerexp = marker_gene_expression(adata, marker_genes_cellTypes, gene_symbol_key=None, partition_key='louvain_r0.5')
 
 # For mouse cell atlas marker genes
 ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
@@ -772,7 +794,7 @@ for k,v in marker_genes_cellTypes.items():
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+  plt.savefig("{0}/21_{1}_marker_genes_stomach_V2_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Generate the UMAPs for each marker categories
 for k,v in ma_marker_genes.items():
@@ -826,28 +848,28 @@ adata.obs[cluster_key].cat.categories
 # Get a new cell type column from the annotation of the louvain_r0.5 clusters
 adata.obs['cellType'] = adata.obs[cluster_key]
 # Add new categories
-adata.obs['cellType'].cat.add_categories(['Tumor','Dendritic','Endothelial_Epithelial_Igfbp3pos','Macrophages','Unidentified','Fibroblasts','Erythrocytes','Restin_like_gamma','Progenitor_at_neck'], inplace=True) 
+adata.obs['cellType'].cat.add_categories(['Dendritic_Macrophages','Unknown1','Unknown2','Erythrocytes','Endothelial_Epithelial_Igfbp3pos','Fibroblasts','ECL_Restin_Macrophages','Progenitor_at_neck','Tumor'], inplace=True) 
 # Get a new subcluster column
-# 0,1,4       = 'Unidentified'
-# 2           = 'Dendritic'
-# 3           = 'Endothelial/Epithelial_Igfbp3⁺'
-# 5           = 'Erythrocytes'
-# 7           = 'Macrophages'
-# 9           = 'Fibroblasts'
-# 10          = 'Restin_like_gamma'
-# 11          = 'Progenitor_at_neck'
-# 6,8,12      = 'Tumor'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='2' ]  = 'Dendritic'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Endothelial_Epithelial_Igfbp3pos'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='5' ]  = 'Erythrocytes'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='7' ]  = 'Macrophages'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='9' ]  = 'Fibroblasts'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Restin_like_gamma'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='11']  = 'Progenitor_at_neck'
-adata.obs['cellType'].loc[(adata.obs['cellType']=='0')|(adata.obs['cellType']=='1')|(adata.obs['cellType']=='4' )]  = 'Unidentified'
-adata.obs['cellType'].loc[(adata.obs['cellType']=='6')|(adata.obs['cellType']=='8')|(adata.obs['cellType']=='12')]  = 'Tumor'
+# 0           = 'Dendritic_Macrophages'
+# 1           = 'Unknown0'
+# 3           = 'Unknown1'
+# 4           = 'Erythrocytes'
+# 5           = 'Endothelial/Epithelial_Igfbp3⁺'
+# 7           = 'Fibroblasts'
+# 8           = 'ECL_Restin_Macrophages'
+# 10          = 'Progenitor_at_neck'
+# 2,6,9,11    = 'Tumor'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='0' ]  = 'Dendritic_Macrophages'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='1' ]  = 'Unknown1'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Unknown2'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='4' ]  = 'Erythrocytes'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='5' ]  = 'Endothelial_Epithelial_Igfbp3pos'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='7' ]  = 'Fibroblasts'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='8' ]  = 'ECL_Restin_Macrophages'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Progenitor_at_neck'
+adata.obs['cellType'].loc[(adata.obs['cellType']=='2')|(adata.obs['cellType']=='6')|(adata.obs['cellType']=='9')|(adata.obs['cellType']=='11')]  = 'Tumor'
 # Remove old categories
-adata.obs['cellType'].cat.remove_categories(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], inplace=True)
+adata.obs['cellType'].cat.remove_categories(adata.obs[cluster_key].cat.categories.tolist(), inplace=True)
 # List new categories
 adata.obs['cellType'].cat.categories
 # Draw Umaps with the categories
@@ -859,13 +881,13 @@ ax = fig.add_subplot(2, 3, 2);                  sc.pl.umap(adata, legend_loc=Non
 # 3D projection
 ax = fig.add_subplot(2, 3, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="cellType", palette=sc.pl.palettes.vega_20, size=150, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 # Save the UMAP
-plt.savefig("{0}/03_normTrVAE_{1}_clustering_CellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=200); plt.close('all')
+plt.savefig("{0}/04_normTrVAE_{1}_clustering_CellType_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=200); plt.close('all')
 
 # 8.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
 # Convert palette into colormap
 clcmap = ListedColormap(sc.pl.palettes.vega_20)
 # Get the DF of tissue and clusters
-clusterBatchDF = adataSubGroup.obs[['batch','cellType']].copy()
+clusterBatchDF = adata.obs[['batch','cellType']].copy()
 # Replace batch number with batch names
 clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
 # Remove index for groupby
@@ -887,13 +909,13 @@ ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 # Put a legend to the right of the current axis
 ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='cellType', title_fontsize=12)
 plt.tight_layout() # For non-overlaping subplots
-plt.savefig("{0}/05_subGroup_{1}_clustering_{2}_tissueID_cellType_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/04_subGroup_{1}_clustering_{2}_tissueID_cellType_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 8.3) Calculate marker genes (one vs. rest)
 sc.tl.rank_genes_groups(adata, groupby='cellType', key_added='rank_genes')
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
-plt.savefig("{0}/03_normTrVAE_{1}_{2}_marker_genes_ranking_cellType.png".format(plotsDir, bname, 'cellType') , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/04_subGroup_{1}_{2}_marker_genes_ranking_cellType.png".format(plotsDir, bname, 'cellType') , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 8.4) Calculate pairwise marker genes list
 # Get all cellTypes into the list
@@ -918,6 +940,9 @@ for grp,ref in cellTypePairComb:
   ngDF = pd.DataFrame()
   for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
     ngDF[n] = pd.DataFrame(adata.uns[keyName][n])[grp]
+  # Add treatment and reference group name
+  ngDF['Treatment'] = grp
+  ngDF['Reference'] = ref
   # Save the dataframe
   ngDF.to_csv("{0}/04_{1}_{2}.txt".format(pwDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
 
@@ -940,8 +965,8 @@ adatafile  = "{0}/05_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName
 # 5           = 'Erythrocytes'
 # 7           = 'Macrophages'
 # 9           = 'Fibroblasts'
-adataSubGroup = adata[~((adata.obs['cellType']=='Dendritic') | (adata.obs['cellType']=='Endothelial_Epithelial_Igfbp3pos') |(adata.obs['cellType']=='Erythrocytes') | (adata.obs['cellType']=='Macrophages') | (adata.obs['cellType']=='Fibroblasts'))].copy()
-# adataSubGroup.shape # (3711, 9606)
+adataSubGroup = adata[~((adata.obs['cellType']=='Dendritic_Macrophages') | (adata.obs['cellType']=='Endothelial_Epithelial_Igfbp3pos') |(adata.obs['cellType']=='Erythrocytes') | (adata.obs['cellType']=='Fibroblasts'))].copy()
+# adataSubGroup.shape # (3483, 9606)
 
 # Calculations for the visualizations
 sc.pp.neighbors(adataSubGroup, random_state = 2105, n_neighbors=7, use_rep = "mmd_latent")
@@ -1097,7 +1122,7 @@ for k,v in marker_genes_cellTypes.items():
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/21_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+  plt.savefig("{0}/21_{1}_marker_genes_stomach_V2_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Generate the UMAPs for each marker categories
 for k,v in ma_marker_genes.items():
@@ -1153,24 +1178,24 @@ adataSubGroup.obs[cluster_key].cat.categories
 # Get a new cell type column from the annotation of the louvain_r0.5 clusters
 adataSubGroup.obs['subCellType'] = adataSubGroup.obs[cluster_key]
 # Add new categories
-adataSubGroup.obs['subCellType'].cat.add_categories(['Unknown0','Unknown1','Unknown2','Unknown3','Unknown4','ECL_RestinLikeGamma_PitProgenitor','Progenitor_at_neck','Tumor'], inplace=True) 
+adataSubGroup.obs['subCellType'].cat.add_categories(['Unknown0','Unknown1','Unknown2','Unknown3','Unknown4','ECL_Restin_Macrophages','ProgenitorAtNeck_PitMucous','Tumor'], inplace=True) 
 # Get a new subcluster column
 # 0           = 'Unknown0'
 # 1           = 'Unknown1'
 # 2           = 'Unknown2'
 # 3           = 'Unknown3'
-# 4           = 'Unknown4'
-# 8           = ['ECL','Restin_like_gamma','Pit_progenitor',]
-# 9           = ['Progenitor_at_neck','Pit_mucous']
-# 5,6,7,10    = 'Tumor'
+# 5           = 'Unknown4'
+# 7           = 'ECL_Restin_Macrophages'
+# 8           = 'ProgenitorAtNeck_PitMucous'
+# 4,6,8,9,10  = 'Tumor'
 adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='0']  = 'Unknown0'
 adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='1']  = 'Unknown1'
 adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='2']  = 'Unknown2'
 adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='3']  = 'Unknown3'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='4']  = 'Unknown4'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='8']  = 'ECL_RestinLikeGamma_PitProgenitor'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='9']  = 'Progenitor_at_neck'
-adataSubGroup.obs['subCellType'].loc[(adataSubGroup.obs['subCellType']=='5')|(adataSubGroup.obs['subCellType']=='6')|(adataSubGroup.obs['subCellType']=='7')|(adataSubGroup.obs['subCellType']=='10')]  = 'Tumor'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='5']  = 'Unknown4'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='7']  = 'ECL_Restin_Macrophages'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='8']  = 'ProgenitorAtNeck_PitMucous'
+adataSubGroup.obs['subCellType'].loc[(adataSubGroup.obs['subCellType']=='4')|(adataSubGroup.obs['subCellType']=='5')|(adataSubGroup.obs['subCellType']=='6')|(adataSubGroup.obs['subCellType']=='7')|(adataSubGroup.obs['subCellType']=='9')|(adataSubGroup.obs['subCellType']=='10')]  = 'Tumor'
 # Remove old categories
 adataSubGroup.obs['subCellType'].cat.remove_categories(adataSubGroup.obs[cluster_key].cat.categories.tolist(), inplace=True)
 # List new categories
@@ -1287,18 +1312,6 @@ rowIdx     = adataSubGroup.obs.index.values.tolist()
 umapCordDF = pd.DataFrame(adataSubGroup.obsm['X_umap'],index=rowIdx, columns=['UMAP1','UMAP2', 'UMAP3'])
 umapCordDF.to_csv("{0}/07_{1}_subCellType_assigned_{2}_UMAP_Coordinates.txt" .format(dataDir, projName, cluster_key), sep='\t', header=True, index=True, index_label="CellID")
 
-# 10.6) Save the normalized, log transformed, batch and cell cycle corrected data
-CellTypeDF                                = adata.to_df()
-CellTypeDF['TissueID']                    = adata.obs['tissueID']
-CellTypeDF['OriginalLouvainCluster']      = adata.obs['louvain_r0.5']
-CellTypeDF['OriginalCellType']            = adata.obs['cellType']
-CellTypeDF['SubCellLouvainCluster']       = adataSubGroup.obs['louvain_r0.5']
-CellTypeDF['SubCellType']                 = adataSubGroup.obs['subCellType']
-CellTypeDF['SubCellTypeTumorSubClusters'] = adataSubGroup.obs['subCellType_Tumor_sub']
-CellTypeDF.to_csv("{0}/07_{1}_scran_normalized_counts_annotation.txt" .format(dataDir, projName, cluster_key), sep='\t', header=True, index=True, index_label="CellID")
-
-# subCellTypeDF.T.to_csv("{0}/04_normalizedRaw_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
-
 # 10.7) Save the subCellType assigned adataSubGroup into a file
 # Write the adataSubGroup and cadataSubGroup object to file
 adataSubGroupfile  = "{0}/07_subCellType_assigned_{1}_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
@@ -1310,7 +1323,7 @@ subCellTypeadata = adataSubGroup.copy() # (5885, 11023)
 # adataSubGroup = subCellTypeadata.copy() # (5885, 11023)
 
 # 8.1) Subcluster Tumors
-sc.tl.louvain(adataSubGroup, restrict_to=('subCellType', ['Tumor']), resolution=0.2, key_added='subCellType_Tumor_sub')
+sc.tl.louvain(adataSubGroup, restrict_to=('subCellType', ['Tumor']), resolution=0.3, key_added='subCellType_Tumor_sub')
 #Show the new clustering
 if 'subCellType_Tumor_sub_colors' in adataSubGroup.uns:
     del adataSubGroup.uns['subCellType_Tumor_sub_colors']
@@ -1372,10 +1385,25 @@ for grp,ref in subCellTypePairComb:
   ngDF = pd.DataFrame()
   for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
     ngDF[n] = pd.DataFrame(adataSubGroup.uns[keyName][n])[grp]
+  # Add treatment and reference group name
+  ngDF['Treatment'] = grp
+  ngDF['Reference'] = ref
   # Save the dataframe
   ngDF.to_csv("{0}/04_{1}_{2}.txt".format(tspwsgDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
 
-# 10.5) Save the subCellType assigned adataSubGroup into a file
+# 10.5) Save the normalized, log transformed, batch and cell cycle corrected data
+CellTypeDF                                = adata.to_df()
+CellTypeDF['TissueID']                    = adata.obs['tissueID']
+CellTypeDF['OriginalLouvainCluster']      = adata.obs['louvain_r0.5']
+CellTypeDF['OriginalCellType']            = adata.obs['cellType']
+CellTypeDF['SubCellLouvainCluster']       = adataSubGroup.obs['louvain_r0.5']
+CellTypeDF['SubCellType']                 = adataSubGroup.obs['subCellType']
+CellTypeDF['SubCellTypeTumorSubClusters'] = adataSubGroup.obs['subCellType_Tumor_sub']
+CellTypeDF.to_csv("{0}/07_{1}_scran_normalized_counts_annotation.txt" .format(dataDir, projName, cluster_key), sep='\t', header=True, index=True, index_label="CellID")
+
+# subCellTypeDF.T.to_csv("{0}/04_normalizedRaw_{1}_customClusters.txt".format(countsDir, projName), sep='\t', header=True, index=True, index_label="GeneSymbol", float_format='%.2g')
+
+# 10.6) Save the subCellType assigned adataSubGroup into a file
 # Write the adataSubGroup and cadataSubGroup object to file
 adataSubGroupfile  = "{0}/08_{1}_subCellType_tumorSubCluster_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
 
