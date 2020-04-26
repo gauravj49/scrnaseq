@@ -822,7 +822,7 @@ adata.obs[cluster_key].cat.categories
 # Get a new cell type column from the annotation of the louvain_r0.5 clusters
 adata.obs['cellType'] = adata.obs[cluster_key]
 # Add new categories
-adata.obs['cellType'].cat.add_categories(['Tumor0','Tumor1','Endothelial_Epithelial_Igfbp3pos','Erythrocytes','ECL','ExocrineSecretoryCells','Macrophages','Fibroblasts','Cluster9','Cluster10','Tumor11','Cluster12'], inplace=True) 
+adata.obs['cellType'].cat.add_categories(['Tumor0','Tumor1','ECL','Erythrocytes','Tumor4','ExocrineSecretoryCells','Macrophages','Fibroblasts','Cluster9','Cluster10','Tumor11','Cluster12'], inplace=True) 
 # Get a new subcluster column
 # # To exclude
 # 2   = Endothelial_Epithelial_Igfbp3pos
@@ -840,11 +840,11 @@ adata.obs['cellType'].cat.add_categories(['Tumor0','Tumor1','Endothelial_Epithel
 # 12 = Cluster12
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='0' ]  = 'Tumor0'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='1' ]  = 'Tumor1'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='2' ]  = 'Endothelial_Epithelial_Igfbp3pos'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'Erythrocytes'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='4' ]  = 'ECL'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='2' ]  = 'ECL'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='3' ]  = 'ChiefCellPgcHigh_EpithelialClCa1High'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='4' ]  = 'Tumor4'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='5' ]  = 'ExocrineSecretoryCells'
-adata.obs['cellType'].loc[adata.obs['cellType' ]=='8' ]  = 'Fibroblasts'
+adata.obs['cellType'].loc[adata.obs['cellType' ]=='8' ]  = 'Cluster8'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='9' ]  = 'Cluster9'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='10']  = 'Cluster10'
 adata.obs['cellType'].loc[adata.obs['cellType' ]=='11']  = 'Tumor11'
@@ -895,14 +895,42 @@ plt.tight_layout() # For non-overlaping subplots
 plt.savefig("{0}/04_subGroup_{1}_clustering_{2}_tissueID_cellType_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 8.3) Calculate marker genes (one vs. rest)
-sc.tl.rank_genes_groups(adata, groupby='cellType', key_added='rank_genes')
+sc.tl.rank_genes_groups(adata, groupby='cellType', key_added='rank_genes', n_genes=adata.shape[1])
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
 plt.savefig("{0}/04_subGroup_{1}_{2}_marker_genes_ranking_cellType.png".format(plotsDir, bname, 'cellType') , bbox_inches='tight', dpi=175); plt.close('all')
 
-# 8.4) Calculate pairwise marker genes list
+# Get average expression DF
+# In [23]: np.mean(adata.to_df(), axis=0)
+# Out[23]:
+# Sox17      0.039553
+# Mrpl15     0.152230
+#              ...
+# mt-Nd4l    0.155424
+# mt-Nd4     1.708211
+# Length: 8473, dtype: float32
+avgExpDF = pd.DataFrame(np.mean(adata.to_df(), axis=0))
+avgExpDF.rename(columns={0: "MeanExpression"}, inplace=True)
 # Get all cellTypes into the list
 cellTypeCategories = adata.obs['cellType'].cat.categories.tolist()
+# Get data dir
+rgDataDir  = "{0}/rankedGenes/SubCategories".format(dataDir); create_dir(rgDataDir)
+for grp in cellTypeCategories:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes'][n])[grp]
+  # Add treatment and reference group name
+  ngDF['Treatment'] = grp
+  ngDF['Reference'] = 'rest'
+  # Convert genes columns to index
+  ngDF.set_index('names', inplace=True)
+  ngDF['MeanExpression'] = avgExpDF['MeanExpression']
+  # Rearragnge columns
+  ngDF = ngDF[['MeanExpression', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj','Treatment','Reference']]
+  # Save the dataframe
+  ngDF.to_csv("{0}/04_{1}_subGroup_{2}_marker_genes_ranking_cellType.txt".format(rgDataDir, projName, grp), sep='\t', header=True, index=True, float_format='%.2g')
+
+# 8.4) Calculate pairwise marker genes list
 # Get the list of all unique pairwise combinations
 cellTypePairComb = [comb for comb in combinations(cellTypeCategories, 2)]
 # Get pairwise plots dir
@@ -932,7 +960,6 @@ for grp,ref in cellTypePairComb:
 # 8.5) Save the cellType assigned adata into a file
 # Write the adata and cadata object to file
 adatafile  = "{0}/05_cellType_assigned_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
-
 # ################################# 
 #     SubCluster Analysis 
 # #################################
@@ -1176,7 +1203,7 @@ adataSubGroup.obs[cluster_key].cat.categories
 # Get a new cell type column from the annotation of the louvain_r0.5 clusters
 adataSubGroup.obs['subCellType'] = adataSubGroup.obs[cluster_key]
 # Add new categories
-adataSubGroup.obs['subCellType'].cat.add_categories(['Erythrocytes_Hbbbs','Epithelia','ECL_Enteroendocrine_PitMoucusTtf3','ProgenitorAtNeck_ChiefCellPgcHigh','Tumor4','Tumor5_Epithelia','SubCluster6','Macrophages_TuftCell','Tumor8','SubCluster9'], inplace=True) 
+adataSubGroup.obs['subCellType'].cat.add_categories(['C0_10_Erythrocytes_Hbbbs','C1_Epithelia','C2_ECL_Enteroendocrine_PitMoucusTtf3','C3_ProgenitorAtNeck_ChiefCellPgcHigh','C4_Tumor4','C5_Tumor5_Epithelia','C6_SubCluster6','C7_Macrophages_TuftCell','C8_Tumor8','C9_SubCluster9'], inplace=True) 
 # Get a new subcluster column
 # 0,10        = 'Erythrocytes_Hbbbs'
 # 1           = 'Epithelia'
@@ -1188,16 +1215,16 @@ adataSubGroup.obs['subCellType'].cat.add_categories(['Erythrocytes_Hbbbs','Epith
 # 7           = 'Macrophages_TuftCell'
 # 8           = 'Tumor8'
 # 9           = 'SubCluster9'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='1']  = 'Epithelia'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='2']  = 'ECL_Enteroendocrine_PitMoucusTtf3'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='3']  = 'ProgenitorAtNeck_ChiefCellPgcHigh'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='4']  = 'Tumor4'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='5']  = 'Tumor5_Epithelia'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='6']  = 'SubCluster6'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='7']  = 'Macrophages_TuftCell'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='8']  = 'Tumor8'
-adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='9']  = 'SubCluster9'
-adataSubGroup.obs['subCellType'].loc[(adataSubGroup.obs['subCellType']=='0')|(adataSubGroup.obs['subCellType']=='10')]  = 'Erythrocytes_Hbbbs'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='1']  = 'C1_Epithelia'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='2']  = 'C2_ECL_Enteroendocrine_PitMoucusTtf3'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='3']  = 'C3_ProgenitorAtNeck_ChiefCellPgcHigh'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='4']  = 'C4_Tumor4'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='5']  = 'C5_Tumor5_Epithelia'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='6']  = 'C6_SubCluster6'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='7']  = 'C7_Macrophages_TuftCell'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='8']  = 'C8_Tumor8'
+adataSubGroup.obs['subCellType'].loc[adataSubGroup.obs['subCellType' ]=='9']  = 'C9_SubCluster9'
+adataSubGroup.obs['subCellType'].loc[(adataSubGroup.obs['subCellType']=='0')|(adataSubGroup.obs['subCellType']=='10')]  = 'C0_10_Erythrocytes_Hbbbs'
 # Remove old categories
 adataSubGroup.obs['subCellType'].cat.remove_categories(adataSubGroup.obs[cluster_key].cat.categories.tolist(), inplace=True)
 # List new categories
@@ -1280,15 +1307,46 @@ sc.tl.rank_genes_groups(adataSubGroup, groupby='subCellType', key_added='rank_ge
 sc.pl.rank_genes_groups(adataSubGroup, key='rank_genes', fontsize=12, show=False)
 plt.savefig("{0}/06_{1}_{2}_marker_genes_ranking_subCellType.png".format(plotsDir, bname, 'subCellType') , bbox_inches='tight', dpi=175); plt.close('all')
 
+
+# Get average expression DF
+# In [23]: np.mean(adata.to_df(), axis=0)
+# Out[23]:
+# Sox17      0.039553
+# Mrpl15     0.152230
+#              ...
+# mt-Nd4l    0.155424
+# mt-Nd4     1.708211
+# Length: 8473, dtype: float32
+avgExpDF = pd.DataFrame(np.mean(adataSubGroup.to_df(), axis=0))
+avgExpDF.rename(columns={0: "MeanExpression"}, inplace=True)
+# Get all cellTypes into the list
+cellTypeCategories = adataSubGroup.obs['subCellType'].cat.categories.tolist()
+# Get data dir
+rgDataDir  = "{0}/subGroup/oneVsRest_rankedGenes".format(dataDir); create_dir(rgDataDir)
+for grp in cellTypeCategories:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adataSubGroup.uns['rank_genes'][n])[grp]
+  # Add treatment and reference group name
+  ngDF['Treatment'] = grp
+  ngDF['Reference'] = 'rest'
+  # Convert genes columns to index
+  ngDF.set_index('names', inplace=True)
+  ngDF['MeanExpression'] = avgExpDF['MeanExpression']
+  # Rearragnge columns
+  ngDF = ngDF[['MeanExpression', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj','Treatment','Reference']]
+  # Save the dataframe
+  ngDF.to_csv("{0}/04_{1}_subGroup_{2}_marker_genes_ranking_cellType.txt".format(rgDataDir, projName, grp), sep='\t', header=True, index=True, float_format='%.2g')
+
 # 10.4) Calculate pairwise marker genes list
 # Get all subCellTypes into the list
 subCellTypeCategories = adataSubGroup.obs['subCellType'].cat.categories.tolist()
 # Get the list of all unique pairwise combinations
 subCellTypePairComb = [comb for comb in combinations(subCellTypeCategories, 2)]
 # Get pairwise plots dir
-pwsgPlotsDir = "{0}/subGroup/rankedGenes".format(plotsDir); create_dir(pwsgPlotsDir)
+pwsgPlotsDir = "{0}/subGroup/pairwise_rankedGenes".format(plotsDir); create_dir(pwsgPlotsDir)
 # Get pairwise data dir
-pwsgDataDir  = "{0}/subGroup/rankedGenes".format(dataDir); create_dir(pwsgDataDir)
+pwsgDataDir  = "{0}/subGroup/pairwise_rankedGenes".format(dataDir); create_dir(pwsgDataDir)
 # Calculate pairwise marker genes  
 for grp,ref in subCellTypePairComb:
   print("- Calculating pairwise marker genes for group_v_reference: {0}_v_{1}".format(grp, ref))
@@ -1306,17 +1364,58 @@ for grp,ref in subCellTypePairComb:
   # Add treatment and reference group name
   ngDF['Treatment'] = grp
   ngDF['Reference'] = ref
+  # Convert genes columns to index
+  ngDF.set_index('names', inplace=True)
+  ngDF['MeanExpression'] = avgExpDF['MeanExpression']
+  # Rearragnge columns
+  ngDF = ngDF[['MeanExpression', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj','Treatment','Reference']]
   # Save the dataframe
-  ngDF.to_csv("{0}/04_{1}_{2}.txt".format(pwsgDataDir, projName, keyName), sep='\t', header=True, index=False, float_format='%.2g')
+  ngDF.to_csv("{0}/04_{1}_subGroup_{2}_marker_genes_ranking_cellType.txt".format(pwsgDataDir, projName, keyName), sep='\t', header=True, index=True, float_format='%.2g')
 
 # 10.5) Save the coordinates of the umap
 rowIdx     = adataSubGroup.obs.index.values.tolist()
 umapCordDF = pd.DataFrame(adataSubGroup.obsm['X_umap'],index=rowIdx, columns=['UMAP1','UMAP2', 'UMAP3'])
 umapCordDF.to_csv("{0}/07_{1}_subCellType_assigned_{2}_UMAP_Coordinates.txt" .format(dataDir, projName, cluster_key), sep='\t', header=True, index=True, index_label="CellID")
 
+# 10.6) Save the normalized, log transformed, batch and cell cycle corrected data
+CellTypeDF                                = adata.to_df()
+CellTypeDF['TissueID']                    = adata.obs['tissueID']
+CellTypeDF['OriginalLouvainCluster']      = adata.obs['louvain_r0.5']
+CellTypeDF['OriginalCellType']            = adata.obs['cellType']
+CellTypeDF['SubCellLouvainCluster']       = adataSubGroup.obs['louvain_r0.5']
+CellTypeDF['SubCellType']                 = adataSubGroup.obs['subCellType']
+CellTypeDF.to_csv("{0}/07_{1}_scran_normalized_counts_annotation.txt" .format(dataDir, projName, cluster_key), sep='\t', header=True, index=True, index_label="CellID")
+
 # 10.7) Save the subCellType assigned adataSubGroup into a file
 # Write the adataSubGroup and cadataSubGroup object to file
 adataSubGroupfile  = "{0}/07_subCellType_assigned_{1}_adataSubGroup.h5ad" .format(dataDir, projName); adataSubGroup.write(adataSubGroupfile)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ############################################################
 # 11) Analysis of Tumor cluster in SubGroup
