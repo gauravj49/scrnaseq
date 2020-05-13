@@ -57,11 +57,11 @@ done
 # Out[11]: 985
 
 # Get the cell ID with hgMycIresCd2
-for t in bulk997 bulk1001 bulk1018 stomach1001;
+for t in bulk997 bulk1001 bulk1018 stomach1001 bulk1079;
 do 
   # Define sampledir
   sampledir="/media/rad/HDD2/temp_manec/${t}_mouse_MmHgMycIresCd2/outs"
-
+  echo ${sampledir}
   # # Get filtered cell barcodes
   # cp ${sampledir}/filtered_feature_bc_matrix/barcodes.tsv.gz ${sampledir}
   # gunzip ${sampledir}/barcodes.tsv.gz
@@ -89,20 +89,27 @@ done
 # 25 /media/rad/HDD2/temp_manec/stomach1001_mouse_MmHgMycIresCd2/outs/stomach1001_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
 
 # Merge cell IDs into one file
-cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_cellIDs.txt /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt | sort -u > /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
+cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001,bulk1079}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_cellIDs.txt /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001,bulk1079}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt | sort -u > /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
 
 # 1832 /media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt
 
 for t in  humanMyc humanMycMappedToMouseMyc gap ires humanCd2;
 do 
-  cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_${t}_cellIDs.txt > /media/rad/HDD2/temp_manec/hgMycIresCd2_${t}_cellIDs.txt
+  cat /media/rad/HDD2/temp_manec/{bulk997,bulk1001,bulk1018,stomach1001,bulk1079}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_${t}_cellIDs.txt > /media/rad/HDD2/temp_manec/hgMycIresCd2_${t}_cellIDs.txt
+  wc -l /media/rad/HDD2/temp_manec/hgMycIresCd2_${t}_cellIDs.txt
+  for g in bulk997 bulk1001 bulk1018 stomach1001 bulk1079;
+  do
+    cat /media/rad/HDD2/temp_manec/${g}_mouse_MmHgMycIresCd2/outs/*_hgMycIresCd2_${t}_cellIDs.txt > /media/rad/HDD2/temp_manec/${g}_hgMycIresCd2_${t}_cellIDs.txt
+    wc -l /media/rad/HDD2/temp_manec/${g}_hgMycIresCd2_${t}_cellIDs.txt
+    
+  done
 done
 
-# 262 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMyc_cellIDs.txt
-# 402 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
-# 584 /media/rad/HDD2/temp_manec/hgMycIresCd2_gap_cellIDs.txt
-# 882 /media/rad/HDD2/temp_manec/hgMycIresCd2_ires_cellIDs.txt
-# 1467 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt
+# 431 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMyc_cellIDs.txt
+# 709 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanMycMappedToMouseMyc_cellIDs.txt
+# 1597 /media/rad/HDD2/temp_manec/hgMycIresCd2_gap_cellIDs.txt
+# 4108 /media/rad/HDD2/temp_manec/hgMycIresCd2_ires_cellIDs.txt
+# 5407 /media/rad/HDD2/temp_manec/hgMycIresCd2_humanCd2_cellIDs.txt
 
 ################## DOCS #####################
 # # cut -f1-2 GRCm38_primary_assembly_hgMycIresCd2.fa.fai
