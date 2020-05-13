@@ -21,9 +21,10 @@ import matplotlib
 # matplotlib.use('TkAgg')
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D      # for 3D projection
-from matplotlib.colors import ListedColormap # for sc.palette to colormap
-from itertools import combinations           # pairwise combinations
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D # for 3D projection
+from matplotlib.colors import ListedColormap    # for sc.palette to colormap
+from itertools import combinations              # pairwise combinations
 
 # Reset random state
 np.random.seed(2105)
@@ -287,12 +288,110 @@ plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname)
 adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the corrected adata object
 # adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
+# normadata = adata.copy()
+
+###############################################################################################################
+adata = normadata.copy()
+
+# 5) Plot UMAP for all the tumor cells 
+# Color the cells that have human myc and ires
+cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
+cl  = sum(cellBarCodes, [])
+ucl = get_unique_list(cl)
+# In [34]: len(ucl)
+# Out[34]: 1832
+
+mylist = adata.obs.index.values
+humaniresmyc = list()
+for e in mylist: 
+  flag = 0
+  for s in ucl: 
+      if s in e: 
+          flag = 1 
+          break
+  humaniresmyc.append(flag)
+
+adata.obs['hgMycIresCd2'] = humaniresmyc
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('hgMycIresCd2')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# --------------------------------------------------------
+# Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
+# Unique cell barcode list of list
+ucblofl = list()
+ucbd    = defaultdict(list)
+for t in ['humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2']:
+  # Cell barcode data frame
+  cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/{1}_hgMycIresCd2_{0}_cellIDs.txt'.format(t,projName), sep="\t", header=None).values.tolist()
+  # Unique cell barcode list
+  ucbl = get_unique_list(sum(cbDF, []))
+  ucbd[t] = ucbl
+  ucblofl.append(ucbl)
+  print("{0}: {1}".format(t,len(ucbl)))
+
+  # Add the flag to adata (Unique cell barcode flag list)
+  ucbfl = list()
+  for e in mylist: 
+    flag = 0
+    for s in ucbl: 
+        if s in e: 
+            flag = 1 
+            break
+    ucbfl.append(flag)
+  adata.obs[t] = ucbfl
+
+import upsetplot
+from upsetplot import from_memberships, from_contents
+upsetContent = from_contents(ucbd)
+memberships  = from_memberships(ucblofl)
+
+# Set new parameters
+size=6
+params = {'legend.fontsize': 'large',
+          'axes.labelsize' : size,
+          'axes.titlesize' : size,
+          'xtick.labelsize': size,
+          'ytick.labelsize': size,
+          'axes.titlepad'  : 15,
+          'font.size': size}
+plt.rcParams.update(params)
+fig = plt.figure(figsize=(10,3))
+upsetplot.plot(upsetContent, show_counts='%d', show_percentages=True, fig=fig)
+plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# Reset to default
+mpl.rcParams.update(mpl.rcParamsDefault)
+
+# Plot all hgMycIresCd2 vector components in separate UMAP
+fig = plt.figure(figsize=(16,6))
+fig.suptitle('hgMycIresCd2 vector components')
+# 2D projection
+sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
+plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_Components_UMAP_2D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+# 3D projection
+sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_Components_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# Get tumor cells (and in percentage)
+tumorDF = adata.obs[['humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2','hgMycIresCd2']].copy()
+tumorDF.to_csv("{0}/05_{1}_tumorComponents_per_vector.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="tissueID")
+
+# 5.5) Save the tumor assigned adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/03_tumorIDs_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/03_tumorIDs_{1}_adata.h5ad" .format(dataDir, projName); tumoridadata  = sc.read_h5ad(adatafile)
 
 #########################################################################
-normadata = adata.copy()
-
-# adata  = normadata.copy()
-# adatas = rawadata.copy()
+rawadatafile = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName)
+rawadata     = sc.read_h5ad(rawadatafile)
+adata        = tumoridadata.copy()
 
 # 7) Clustering
 # 7.1) Perform clustering - using highly variable genes
@@ -374,10 +473,10 @@ plt.savefig("{0}/02_norm_{1}_clustering_{2}_UMAP_individual_clusters.png".format
 ##################################################################
 # 8.1) Marker genes & cluster annotation
 # Calculate marker genes
-sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes')
+sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes_{0}'.format(cluster_key), n_genes=adata.shape[1])
 
 # Plot marker genes
-sc.pl.rank_genes_groups(adata, key='rank_genes', fontsize=12, show=False)
+sc.pl.rank_genes_groups(adata, key='rank_genes_{0}'.format(cluster_key), fontsize=12, show=False)
 plt.savefig("{0}/02_norm_{1}_{2}_marker_genes_ranking.png".format(plotsDir, bname, cluster_key) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # Annotation of cluster r_0.5 with known marker genes
@@ -478,11 +577,70 @@ for k,v in ma_marker_genes.items():
 louvainsDF = pd.DataFrame(adata.obs[cluster_key])
 louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
 
-# 7.5) Save the cellType assigned adata into a file
+# Get clean marker dict
+adata_expressed_genes = adata.var.index.tolist()
+marker_genes_filtered_dict = defaultdict()
+for k,v in marker_genes_cellTypes.items():
+  new_genes_list = [x for x in v if x in adata_expressed_genes]
+  if new_genes_list:
+    marker_genes_filtered_dict[k] = new_genes_list
+
+ma_marker_genes_filtered_dict = defaultdict()
+for k,v in ma_marker_genes.items():
+  new_genes_list = [x for x in v if x in adata_expressed_genes]
+  if new_genes_list:
+    ma_marker_genes_filtered_dict[k] = new_genes_list
+
+# 8.2) Other marker gene visualization
+marker_list_name = "stomach_V2"
+# 8.2.1) Dot plots: The dotplot visualization provides a compact way of showing per group, the fraction of cells expressing a gene (dot size) and the mean expression of the gene in those cell (color scale).
+# The use of the dotplot is only meaningful when the counts matrix contains zeros representing no gene counts. dotplot visualization does not work for scaled or corrected matrices in which cero counts had been replaced by other values.
+sc.pl.dotplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.2) Matrix plots: The matrixplot shows the mean expression of a gene in a group by category as a heatmap. In contrast to dotplot, the matrix plot can be used with corrected and/or scaled counts. By default raw counts are used.
+sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.3) Tracksplots: The track plot shows the same information as the heatmap, but, instead of a color scale, the gene expression is represented by height.
+ad = adata.copy()
+ad.raw.X.data = np.exp(ad.raw.X.data)
+ax = sc.pl.tracksplot(ad, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+marker_list_name = "mouse_cellatlas"
+# 8.2.1) Dot plots
+sc.pl.dotplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.2) Matrix plots
+sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.3) Tracksplots
+ax = sc.pl.tracksplot(ad, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 8.4) Dataframe of ranked genes
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key        = "louvain_r1"
+cluster_bname      = "louvain_r1"
+cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
+rankGenesDir       = "{0}/rankedGenes/{1}".format(dataDir,cluster_bname); create_dir(rankGenesDir)
+for g in cluster_key_groups:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_{0}'.format(cluster_key)][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_{1}_rank_genes_{2}_{3}.txt".format(rankGenesDir, projName, cluster_bname, g), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 8.6) Save the cellType assigned adata into a file
 # Write the adata and cadata object to file
 adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the corrected adata object
-# adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
-
+adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
+adata = markeradata.copy()
 # Finished on 2020-04Apr-27 00:33
 #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
