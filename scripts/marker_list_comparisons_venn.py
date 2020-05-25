@@ -84,7 +84,7 @@ def check_options():
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=textwrap.dedent('''\
         ----------------- SAMPLE USAGE ------------------
-        - python scripts/marker_list_comparisons_venn.py -if "output/manec/individual_samples/bulk997/data/rankedGenes/louvain_r05/03_bulk997_rank_genes_louvain_r05_0.txt" "output/manec/individual_samples/bulk1001/data/rankedGenes/louvain_r1/03_bulk1001_rank_genes_louvain_r1_0.txt" "output/manec/individual_samples/bulk1018/data/rankedGenes/louvain_r1/03_bulk1018_rank_genes_louvain_r1_0.txt" -of=test.txt -sc=5
+        - python scripts/marker_list_comparisons_venn.py -if "output/manec/individual_samples/bulk997/data/rankedGenes/louvain_r05/03_bulk997_rank_genes_louvain_r05_5.txt" "output/manec/individual_samples/bulk1001/data/rankedGenes/louvain_r1/03_bulk1001_rank_genes_louvain_r1_1.txt" "output/manec/individual_samples/bulk1018/data/rankedGenes/louvain_r1/03_bulk1018_rank_genes_louvain_r1_4.txt" "output/manec/individual_samples/stomach1001/data/rankedGenes/louvain_r1/03_stomach1001_rank_genes_louvain_r1_8.txt" -of=output/manec/individual_samples/reproducibility/Erythrocytes.txt -sc=10
         -------------------------------------------------
         CONTACT: 
         	Gaurav Jain
