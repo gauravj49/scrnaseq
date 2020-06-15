@@ -394,9 +394,7 @@ marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(l
 
 # For mouse cell atlas marker genes
 ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
-ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
-ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
-ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", index_col=None)
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
 # l = ['a', 'b', 'c', 'd', 'f']
@@ -771,9 +769,7 @@ marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(l
 
 # For mouse cell atlas marker genes
 ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
-ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
-ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
-ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", index_col=None)
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
 # Get all the gene names in the adataSubGroup object
@@ -1097,9 +1093,7 @@ marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(l
 
 # For mouse cell atlas marker genes
 ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
-ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
-ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
-ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", index_col=None)
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
 # Get all the gene names in the adataSubGroup object
