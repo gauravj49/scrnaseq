@@ -393,7 +393,7 @@ marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(l
 # markerexp = marker_gene_expression(adata, marker_genes_cellTypes, gene_symbol_key=None, partition_key='louvain_r0.5')
 
 # For mouse cell atlas marker genes
-ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
+ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/PDAC_markergenelist_V1.txt'
 ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", index_col=None)
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
@@ -469,7 +469,7 @@ for k,v in ma_marker_genes.items():
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+  plt.savefig("{0}/30_{1}_PDAC_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Save the louvain information in external file
 louvainsDF = pd.DataFrame(adata.obs[cluster_key])
@@ -506,18 +506,18 @@ ad.raw.X.data = np.exp(ad.raw.X.data)
 ax = sc.pl.tracksplot(ad, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
 plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
-marker_list_name = "mouse_cellatlas"
+marker_list_name = "PDAC_marker_V1"
 # 8.2.1) Dot plots
 sc.pl.dotplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
-plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/02_norm_{1}_{2}_30_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 # 8.2.2) Matrix plots
 sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
-plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/02_norm_{1}_{2}_30_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
-plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+plt.savefig("{0}/02_norm_{1}_{2}_30_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 # 8.2.3) Tracksplots
-ax = sc.pl.tracksplot(ad, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
-plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+ax = sc.pl.tracksplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/02_norm_{1}_{2}_30_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 8.4) Dataframe of ranked genes
 # Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
@@ -539,6 +539,8 @@ adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); ada
 # # Read back the corrected adata object
 # adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
 # adata = markeradata.copy()
+
+# rename 's/_stomach//' 30_*
 ########################################################################################################################
 
 # adata = markeradata.copy()
