@@ -30,7 +30,6 @@ done
 gzip */*
 cd /home/rad/users/gaurav/projects/seqAnalysis/scrnaseq
 
-
 ##################################################################
 ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
@@ -102,7 +101,7 @@ minCountPerCell = 50
 maxCountPerCell = 100000 
 minCellsPergene = 2
 mtGenesFilter   = 0.25
-rbGenesFilter   = 0.15
+rbGenesFilter   = 0.30
 bname           = projName
 plotsDir        = "{0}/plots".format(output_dir); create_dir(plotsDir)
 dataDir         = "{0}/data".format(output_dir); create_dir(dataDir)
@@ -194,16 +193,15 @@ print('Total number of genes: {:d}'.format(adata.n_vars))
 sc.pp.filter_genes(adata, min_cells=minCellsPergene)
 print('Number of genes after minCellsPergene filter: {:d}'.format(adata.n_vars))
 
-# Total number of cells: 4334
-# Number of cells after min count filter: 4334
-# Number of cells after max count filter: 4334
-# Number of cells after MT filter  : 4043
-# Number of cells after Ribo filter: 3462
-# Trying to set attribute `.obs` of view, copying.
-# Number of cells after gene filter: 3462
-# Total number of genes: 55488
-# Number of genes after minCellsPergene filter: 16799
-# Number of highly variable genes: 3998
+# Total number of cells                 : 1432
+# Number of cells after min count filter: 1432
+# Number of cells after max count filter: 1432
+# Number of cells after MT filter       : 1432
+# Number of cells after Ribo filter     : 1402
+# Number of cells after gene filter     : 1402
+
+# Total number of genes: 55471
+# Number of genes after minCellsPergene filter: 17606
 
 # 1.2.9) Compute variable genes
 # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
@@ -310,7 +308,7 @@ sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.ve
 ax = fig.add_subplot(2, 2, 4, projection='3d')
 sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.tight_layout()
-plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=750); plt.close('all')
+plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
 
 # 4.4) Save the normalized cell cycle corrected adata into a file
 # Write the adata and cadata object to file
@@ -319,111 +317,13 @@ adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); adata.wr
 # adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
 # normadata = adata.copy()
 
-###############################################################################################################
-adata = normadata.copy()
-
-# 5) Plot UMAP for all the tumor cells 
-# Color the cells that have human myc and ires
-cellBarCodes = pd.read_csv('/media/rad/HDD2/temp_manec/hgMycIresCd2_cellIDs.txt', sep="\t", header=None).values.tolist()
-cl  = sum(cellBarCodes, [])
-ucl = get_unique_list(cl)
-# In [34]: len(ucl)
-# Out[34]: 1832
-
-mylist = adata.obs.index.values
-humaniresmyc = list()
-for e in mylist: 
-  flag = 0
-  for s in ucl: 
-      if s in e: 
-          flag = 1 
-          break
-  humaniresmyc.append(flag)
-
-adata.obs['hgMycIresCd2'] = humaniresmyc
-fig = plt.figure(figsize=(16,6))
-fig.suptitle('hgMycIresCd2')
-# 2D projection
-ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
-# 3D projection
-ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color="hgMycIresCd2", color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
-plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_CellIDs_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# --------------------------------------------------------
-# Get tumors for all individual vectors ('humanMyc', 'gap', 'ires', 'humanCd2')
-# Unique cell barcode list of list
-ucblofl = list()
-ucbd    = defaultdict(list)
-for t in ['humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2']:
-  # Cell barcode data frame
-  cbDF = pd.read_csv('/media/rad/HDD2/temp_manec/{1}_hgMycIresCd2_{0}_cellIDs.txt'.format(t,projName), sep="\t", header=None).values.tolist()
-  # Unique cell barcode list
-  ucbl = get_unique_list(sum(cbDF, []))
-  ucbd[t] = ucbl
-  ucblofl.append(ucbl)
-  print("{0}: {1}".format(t,len(ucbl)))
-
-  # Add the flag to adata (Unique cell barcode flag list)
-  ucbfl = list()
-  for e in mylist: 
-    flag = 0
-    for s in ucbl: 
-        if s in e: 
-            flag = 1 
-            break
-    ucbfl.append(flag)
-  adata.obs[t] = ucbfl
-
-import upsetplot
-from upsetplot import from_memberships, from_contents
-upsetContent = from_contents(ucbd)
-memberships  = from_memberships(ucblofl)
-
-# Set new parameters
-size=6
-params = {'legend.fontsize': 'large',
-          'axes.labelsize' : size,
-          'axes.titlesize' : size,
-          'xtick.labelsize': size,
-          'ytick.labelsize': size,
-          'axes.titlepad'  : 15,
-          'font.size': size}
-plt.rcParams.update(params)
-fig = plt.figure(figsize=(10,3))
-upsetplot.plot(upsetContent, show_counts='%d', show_percentages=True, fig=fig)
-plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_individual_CellIDs_upsetPlot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-# Reset to default
-mpl.rcParams.update(mpl.rcParamsDefault)
-
-# Plot all hgMycIresCd2 vector components in separate UMAP
-fig = plt.figure(figsize=(16,6))
-fig.suptitle('hgMycIresCd2 vector components')
-# 2D projection
-sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, show=False)
-plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_Components_UMAP_2D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-# 3D projection
-sc.pl.umap(adata, color=['hgMycIresCd2','humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2'], color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.8, hspace=0.35, wspace=0.3, projection='3d', show=False)
-plt.savefig("{0}/03_{1}_Tumor_hgMycIresCd2_Components_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# Get tumor cells (and in percentage)
-tumorDF = adata.obs[['humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2','hgMycIresCd2']].copy()
-tumorDF.to_csv("{0}/05_{1}_tumorComponents_per_vector.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="tissueID")
-
-# 5.5) Save the tumor assigned adata into a file
-# Write the adata and cadata object to file
-adatafile  = "{0}/03_tumorIDs_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
-# # Read back the corrected adata object
-# adatafile  = "{0}/03_tumorIDs_{1}_adata.h5ad" .format(dataDir, projName); tumoridadata  = sc.read_h5ad(adatafile)
-
 #########################################################################
 rawadatafile = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName)
 rawadata     = sc.read_h5ad(rawadatafile)
-adata        = tumoridadata.copy()
+# adata = normadata.copy()
 
-# 7) Clustering
-# 7.1) Perform clustering - using highly variable genes
+# 5) Clustering
+# 5.1) Perform clustering - using highly variable genes
 sc.tl.louvain(adata, key_added='louvain', random_state=2105)
 sc.tl.louvain(adata, resolution=1, key_added='louvain_r1', random_state=2105)
 sc.tl.louvain(adata, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
@@ -448,8 +348,8 @@ plt.savefig("{0}/02_norm_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, b
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/02_norm_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-cluster_key   = "louvain_r0.5"
-cluster_bname = "louvain_r05"
+cluster_key   = "louvain_r1"
+cluster_bname = "louvain_r1"
 fig = plt.figure(figsize=(32,12))
 # 2D projection
 ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="log_counts", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw log_counts UMAP")
@@ -500,10 +400,9 @@ plt.tight_layout()
 plt.savefig("{0}/02_norm_{1}_clustering_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ##################################################################
-# 8.1) Marker genes & cluster annotation
+# 6.1) Marker genes & cluster annotation
 # Calculate marker genes
 sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes_{0}'.format(cluster_key), n_genes=adata.shape[1])
-
 # Plot marker genes
 sc.pl.rank_genes_groups(adata, key='rank_genes_{0}'.format(cluster_key), fontsize=12, show=False)
 plt.savefig("{0}/02_norm_{1}_{2}_marker_genes_ranking.png".format(plotsDir, bname, cluster_key) , bbox_inches='tight', dpi=175); plt.close('all')
@@ -513,62 +412,14 @@ markerDir = "{0}/markerDir".format(plotsDir); create_dir(markerDir)
 subplot_title_fontsize = 12
 subplot_title_width    = 50
 
-# Read the marker genes into a pandas dataframe
-marker_file  = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_V2.txt'
-markersDF    = pd.read_csv(marker_file, sep="\t")
-marker_genes = markersDF.groupby('CellLines')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
-marker_genes_cellTypes = markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
-
-# markerexp = marker_gene_expression(adata, marker_genes_cellTypes, gene_symbol_key=None, partition_key='louvain_r0.5')
-
 # For mouse cell atlas marker genes
-ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/stomach_marker_list_mouse_cellatlas_V1.txt'
-ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=None, index_col=None)
-ma_markersDF         = ma_markersDF[0].str.split(",", n = 1, expand = True)
+ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/adultBrain_mouse_cellatlas_V1.txt'
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=0, index_col=None)
 ma_markersDF.columns = ['CellTypes', 'MarkerGenes']
 ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
 
-# l = ['a', 'b', 'c', 'd', 'f']
-# d = {'A':['a','x','c'], 'B':['c','d'],'C':['x','y']}
-
-# for k,v in d.items():
-#   nv = [x for x in v if x in l]
-#   d[k] = nv
-
 # Get all the gene names in the adata object
 genespresent = adata.var.index.values.tolist()
-
-# Generate the UMAPs for each marker categories
-for k,v in marker_genes_cellTypes.items():
-  print("\n- Original list {0}: {1}".format(k,v))
-  validgenes = [x for x in v if x in genespresent]
-  ids = np.in1d(adata.var_names,validgenes)
-  print("- Genes present {0}: {1}".format(k,validgenes))
-
-  ngenes = len(validgenes)
-  nrows  = ngenes + 2
-  adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
-
-  fig = plt.figure(figsize=(14,6*nrows))
-  # fig.suptitle('Stomach_marker_list_V1')
-  # Plot cluster
-  ax = fig.add_subplot(nrows, 2, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-  ax = fig.add_subplot(nrows, 2, 2, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-
-  # Plots mean marker genes
-  ax = fig.add_subplot(nrows, 2, 3);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
-  ax = fig.add_subplot(nrows, 2, 4, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
-
-  # Plot individual marker genes
-  m=5; n=6
-  for i,mgene in enumerate(validgenes):
-    # print(i+m, i+n, mgene)
-    ax = fig.add_subplot(nrows, 2, i+m);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(nrows, 2, i+n, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
-    m+=1; n+=1
-
-  plt.tight_layout()
-  plt.savefig("{0}/31_{1}_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Generate the UMAPs for each marker categories
 for k,v in ma_marker_genes.items():
@@ -600,7 +451,7 @@ for k,v in ma_marker_genes.items():
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/32_{1}_mouse_cellatlas_marker_genes_stomach_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+  plt.savefig("{0}/01_{1}_mouse_cellatlas_marker_genes_adultBrain_{2}_UMAPs.png".format(markerDir, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Save the louvain information in external file
 louvainsDF = pd.DataFrame(adata.obs[cluster_key])
@@ -608,12 +459,6 @@ louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t',
 
 # Get clean marker dict
 adata_expressed_genes = adata.var.index.tolist()
-marker_genes_filtered_dict = defaultdict()
-for k,v in marker_genes_cellTypes.items():
-  new_genes_list = [x for x in v if x in adata_expressed_genes]
-  if new_genes_list:
-    marker_genes_filtered_dict[k] = new_genes_list
-
 ma_marker_genes_filtered_dict = defaultdict()
 for k,v in ma_marker_genes.items():
   new_genes_list = [x for x in v if x in adata_expressed_genes]
@@ -621,23 +466,7 @@ for k,v in ma_marker_genes.items():
     ma_marker_genes_filtered_dict[k] = new_genes_list
 
 # 8.2) Other marker gene visualization
-marker_list_name = "stomach_V2"
-# 8.2.1) Dot plots: The dotplot visualization provides a compact way of showing per group, the fraction of cells expressing a gene (dot size) and the mean expression of the gene in those cell (color scale).
-# The use of the dotplot is only meaningful when the counts matrix contains zeros representing no gene counts. dotplot visualization does not work for scaled or corrected matrices in which cero counts had been replaced by other values.
-sc.pl.dotplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
-plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
-# 8.2.2) Matrix plots: The matrixplot shows the mean expression of a gene in a group by category as a heatmap. In contrast to dotplot, the matrix plot can be used with corrected and/or scaled counts. By default raw counts are used.
-sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
-plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
-plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
-# 8.2.3) Tracksplots: The track plot shows the same information as the heatmap, but, instead of a color scale, the gene expression is represented by height.
-ad = adata.copy()
-ad.raw.X.data = np.exp(ad.raw.X.data)
-ax = sc.pl.tracksplot(ad, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
-plt.savefig("{0}/02_norm_{1}_{2}_31_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
-
-marker_list_name = "mouse_cellatlas"
+marker_list_name = "mouse_cellatlas_adultBrain_V1"
 # 8.2.1) Dot plots
 sc.pl.dotplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
 plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
@@ -647,13 +476,13 @@ plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_matrixplot.png".form
 sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
 plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 # 8.2.3) Tracksplots
-ax = sc.pl.tracksplot(ad, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+ax = sc.pl.tracksplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
 plt.savefig("{0}/02_norm_{1}_{2}_32_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 8.4) Dataframe of ranked genes
 # Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
-cluster_key        = "louvain_r0.5"
-cluster_bname      = "louvain_r05"
+cluster_key        = "louvain_r1"
+cluster_bname      = "louvain_r1"
 cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
 cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
 rankGenesDir       = "{0}/rankedGenes/{1}".format(dataDir,cluster_bname); create_dir(rankGenesDir)
