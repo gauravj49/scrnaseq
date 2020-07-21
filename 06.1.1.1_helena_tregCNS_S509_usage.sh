@@ -123,7 +123,7 @@ sc.logging.print_versions()
 
 # 1) Reading and performing QC on individual datasets
 # 1.1) Reading the data in the anndata object individually
-adata = sc.read_10x_mtx('/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S509')
+adata = sc.read_10x_mtx("/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/{0}".format(projName))
 
 # 1.2) Make the variable names unique and calculate some general qc-stats for genes and cells
 adata.var_names_make_unique()

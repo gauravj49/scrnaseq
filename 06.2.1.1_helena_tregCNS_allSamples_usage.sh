@@ -10,6 +10,7 @@ import pickle
 import logging
 import scanorama
 import trvae
+import scvelo
 from textwrap import wrap
 
 # For X11 display
@@ -196,15 +197,21 @@ adata.obs['rb_frac'] = adata.X[:, rb_gene_mask].sum(1)/adata.obs['n_counts']
 
 # 1.2.3) Plot QC metrics
 fig = plt.figure(figsize=(15,20))
+n   = 
 # Sample quality plots
-ax = fig.add_subplot(3, 2, 1); t1 = sc.pl.violin(adata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
-ax = fig.add_subplot(3, 2, 2); t2 = sc.pl.violin(adata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
+ax = fig.add_subplot(n, 2, 1); t1  = sc.pl.violin(adata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
+ax = fig.add_subplot(n, 2, 2); t2  = sc.pl.violin(adata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
 # 1.2.4) Thresholdingecision based on counts
-ax = fig.add_subplot(3, 2, 3); p3 = sns.distplot(adata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
-ax = fig.add_subplot(3, 2, 4); p4 = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
+ax = fig.add_subplot(n, 2, 3); p3  = sns.distplot(adata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
+ax = fig.add_subplot(n, 2, 4); p4  = sns.distplot(adata.obs['n_counts'][adata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
 # 1.2.5) Thresholding decision based on genes
-ax = fig.add_subplot(3, 2, 5); p6 = sns.distplot(adata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
-ax = fig.add_subplot(3, 2, 6); p7 = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
+ax = fig.add_subplot(n, 2, 5); p6  = sns.distplot(adata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
+ax = fig.add_subplot(n, 2, 6); p7  = sns.distplot(adata.obs['n_genes'][adata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
+# 1.2.6) mt and rb fraction plots
+ax = fig.add_subplot(n, 2, 7); p8  = sc.pl.scatter(adata, 'n_counts', 'n_genes', color='mt_frac', show=False)
+ax = fig.add_subplot(n, 2, 8); p9  = sc.pl.scatter(adata[adata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', show=False)
+ax = fig.add_subplot(n, 2, 9); p10 = sc.pl.scatter(adata, 'n_counts', 'n_genes', color='rb_frac', show=False)
+ax = fig.add_subplot(n, 2, 10);p11 = sc.pl.scatter(adata[adata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', show=False)
 plt.tight_layout()
 plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
@@ -365,6 +372,7 @@ plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname)
 
 
 # 4) Technical correction
+adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); rawadata  = sc.read_h5ad(adatafile)
 # 4.1) Batch Correction using Combat
 # CPM
 cpmcombatadata = cpmadata.copy()
@@ -381,7 +389,40 @@ sc.pp.pca(scrancombatadata, n_comps=50, use_highly_variable=True, svd_solver='ar
 sc.pp.neighbors(scrancombatadata, random_state = 2105)
 sc.tl.umap(scrancombatadata, random_state = 2105, n_components=3)
 
-# 4.2) Batch Correction using Scanorama
+# 4.2.1) Batch Correction using Scanorama for cpm normalized data
+cpmadata2 = sc.AnnData(X=cpmadata.X, var=cpmadata.var, obs = cpmadata.obs)
+#variable genes for the full dataset
+sc.pp.highly_variable_genes(cpmadata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'batch')
+var_genes_batch = cpmadata2.var.highly_variable_nbatches > 0
+var_select = cpmadata2.var.highly_variable_nbatches > 1
+var_genes = var_select.index[var_select]
+# Split per batch into new objects.
+batches = ['0','1','2','3','4','5','6','7','8','9','10','11','12']
+cpmalldata = {}
+for batch in batches:
+    cpmalldata[batch] = cpmadata2[cpmadata2.obs['batch'] == batch,]
+# Subset the individual dataset to the same variable genes as in MNN-correct.
+cpmalldata2 = dict()
+for ds in cpmalldata.keys():
+    print(ds)
+    cpmalldata2[ds] = cpmalldata[ds][:,var_genes]
+# Convert to list of AnnData objects
+comnormadatas = list(cpmalldata2.values())
+# Run scanorama.integrate
+cpmscanorama  = scanorama.integrate_scanpy(comnormadatas, dimred = 50,)
+# Make into one matrix.
+cpmall_s = np.concatenate(cpmscanorama)
+print(cpmall_s.shape)
+# Add to the AnnData object
+cpmscanoramaadata = adata.copy()
+cpmscanoramaadata.obsm["SC"] = cpmall_s
+# Calculations for the visualizations
+sc.pp.highly_variable_genes(cpmscanoramaadata, flavor='cell_ranger', n_top_genes=4000)
+sc.pp.pca(cpmscanoramaadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(cpmscanoramaadata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(cpmscanoramaadata, random_state = 2105, n_components=3)
+
+# 4.2.2) Batch Correction using Scanorama for scrna normalized data
 scranadata2 = sc.AnnData(X=scranadata.X, var=scranadata.var, obs = scranadata.obs)
 #variable genes for the full dataset
 sc.pp.highly_variable_genes(scranadata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = 'batch')
@@ -408,13 +449,45 @@ print(scranall_s.shape)
 # Add to the AnnData object
 scranscanoramaadata = adata.copy()
 scranscanoramaadata.obsm["SC"] = scranall_s
-
 # Calculations for the visualizations
 sc.pp.highly_variable_genes(scranscanoramaadata, flavor='cell_ranger', n_top_genes=4000)
 sc.pp.pca(scranscanoramaadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
 sc.pp.neighbors(scranscanoramaadata, random_state = 2105, use_rep = "SC")
 sc.tl.umap(scranscanoramaadata, random_state = 2105, n_components=3)
 
+# # 5) Technical correction: Batch Correction using TrVAE
+# rawadatas = adatas.copy()
+# trvaecpmadata = 
+
+# # 5.1) Normalizing & Extracting Top 1000 Highly Variable Genes
+# # We can preserve more genes (up to 7000 like scGen) but in order to train the network quickly, we will extract top 1000 genes
+# adata2 = adata.copy(); sc.pp.log1p(adata2); sc.pp.highly_variable_genes(adata2, n_top_genes=1000); adata2 = adata2[:, adata2.var['highly_variable']]
+# # 5.2) Train/Test Split
+# train_adata, valid_adata = trvae.utils.train_test_split(adata2, train_frac=0.80); train_adata.shape, valid_adata.shape # ((4348, 7109), (1087, 7109))
+# # 5.3) Calculate number of batches
+# n_conditions = len(train_adata.obs[condition_key].unique().tolist()); conditions = adata2.obs[condition_key].unique().tolist(); condition_encoder = trvae.utils.create_dictionary(conditions, []); condition_encoder; # {'bulk1001': 0, 'bulk997': 1, 'bulk1018': 2, 'stomach1001': 3}
+# # 5.4)Create the network
+# network = trvae.archs.trVAE(x_dimension=train_adata.shape[1], architecture=[128, 32], z_dimension=10, n_conditions=n_conditions, alpha=0.00005, beta=50, eta=100,  output_activation='relu')
+# # 5.5) Training trVAE
+# # NOTE: This will take 8 to 10 minutes on WS4 with single CPU
+# outModelFile    = "{0}/trVAE_{1}_network.model".format(dataDir,projName)
+# network.train(train_adata, valid_adata, condition_encoder, condition_key, n_epochs=500, batch_size=1024, verbose=5, early_stop_limit=300, lr_reducer=0, shuffle=True, save=True)
+# # 5.6) Getting batch-corrected adata
+# labels, _ = trvae.tl.label_encoder(adata2, condition_key=condition_key, label_encoder=condition_encoder); network.get_corrected(adata2, labels, return_z=True)
+# # 5.7) MMD Layer UMAP visualization
+# adata.obsm['mmd_latent']    = adata2.obsm['mmd_latent']; adata.obsm['z_latent']      = adata2.obsm['z_latent']; adata.obsm['reconstructed'] = adata2.obsm['reconstructed']
+# sc.pp.neighbors(adata, random_state = 2105, n_neighbors=7, use_rep = "mmd_latent"); sc.tl.umap(adata, random_state = 2105, n_components=3); fig = plt.figure(figsize=(16,13)); fig.suptitle('TissueID')
+
+# # 2D projection
+# ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
+# ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
+# # 3D projection
+# ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
+# ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(adata                , ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE UMAP")
+# plt.tight_layout()
+# plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_tissueID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+####
 fig = plt.figure(figsize=(32,8))
 # 2D projection
 ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(adata             ,                  ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
@@ -434,15 +507,121 @@ plt.savefig("{0}/03_norm_all_batchCorrection_{1}_tissueID_UMAP.png".format(plots
 
 # 4.4) Save the normalized cell cycle corrected adata into a file
 # Write the adata and cadata object to file
-adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+adatafile  = "{0}/03_norm_all_batchCorrection_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the corrected adata object
-# adatafile  = "{0}/02_normCC_{1}_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
+# adatafile  = "{0}/03_norm_all_batchCorrection_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
 # normadata = adata.copy()
 
 #########################################################################
-rawadatafile = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName)
-rawadata     = sc.read_h5ad(rawadatafile)
-# adata = normadata.copy()
+
 
 # 5) Clustering
 # 5.1) Perform clustering - using highly variable genes
+
+############################################################
+############################################################
+# Using SCANORAMA for batch correction
+############################################################
+rawadatafile = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName)
+rawadata     = sc.read_h5ad(rawadatafile)
+
+# for adataLabel, normbcadata in zip(['cpm_combat', 'scran_combat', 'cpm_scanorama', 'scran_scanorama'], [cpmcombatadata, scrancombatadata, cpmscanoramaadata, scranscanoramaadata]):
+for adataLabel, normbcadata in zip(['cpm_scanorama', 'scran_scanorama'], [cpmscanoramaadata, scranscanoramaadata]):
+    adata = normbcadata.copy()
+    bname = "{0}_{1}".format(projName, adataLabel)
+    print(adata.shape)
+    print(bname)
+    print()
+
+    # 7) Clustering
+    # 7.1) Perform clustering - using highly variable genes
+    sc.tl.louvain(adata, key_added='louvain', random_state=2105)
+    sc.tl.louvain(adata, resolution=1, key_added='louvain_r1', random_state=2105)
+    sc.tl.louvain(adata, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
+    sc.tl.louvain(adata, resolution=2.0, key_added='louvain_r2', random_state=2105)
+
+    for i in np.linspace(0.1,0.9,9):
+        try:
+            sc.tl.louvain(adata, resolution=i, key_added='louvain_r{0}'.format(i), random_state=2105)
+            print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
+        except:
+            print("- Error in r: {0}".format(i))
+    sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+    sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
+
+    # 4.3) Visualizations
+
+    # Calculations for the visualizations
+    sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+    sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
+    sc.tl.umap(adata, random_state = 2105, n_components=3)
+
+    # Plot visualizations
+    # Visualize the clustering and how this is reflected by different technical covariates
+    sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+    plt.savefig("{0}/03_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+    sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+    plt.savefig("{0}/03_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+    # Subcluster keys
+    cluster_key            = "louvain_r0.5"
+    cluster_bname          = "louvain_r05"
+    subplot_title_fontsize = 12
+    subplot_title_width    = 50
+
+    # Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+    cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
+    cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
+
+    # Louvain UMAPs
+    fig = plt.figure(figsize=(24,8))
+    # 2D projection
+    ax = fig.add_subplot(2, 4, 1);                  sc.pl.umap(adata, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="louvain_r0.5 UMAP")
+    ax = fig.add_subplot(2, 4, 2);                  sc.pl.umap(adata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="tissueID UMAP")
+    ax = fig.add_subplot(2, 4, 3);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+    ax = fig.add_subplot(2, 4, 4);                  sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+    # 3D projection
+    ax = fig.add_subplot(2, 4, 5, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="louvain_r0.5 UMAP")
+    ax = fig.add_subplot(2, 4, 6, projection='3d'); sc.pl.umap(adata, ax=ax, color="tissueID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="tissueID UMAP")
+    ax = fig.add_subplot(2, 4, 7, projection='3d'); sc.pl.umap(adata         , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+    ax = fig.add_subplot(2, 4, 8, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+    plt.tight_layout()
+    plt.savefig("{0}/03_{1}_louvain_tissueID_counts_mtfrac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+    # UMAPS
+    fig = plt.figure(figsize=(16,6))
+    fig.suptitle(cluster_key)
+    # 2D projection
+    ax = fig.add_subplot(1, 2, 1);                  
+    sc.pl.umap(adata, legend_loc=None, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+    # 3D projection
+    ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+    sc.pl.umap(adata, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+    plt.savefig("{0}/03_{1}_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+    # 9.3) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+    # Convert palette into colormap
+    clcmap = ListedColormap(sc.pl.palettes.vega_20)
+    # Get the DF of tissue and clusters
+    clusterBatchDF = adata.obs[['batch','{0}'.format(cluster_key)]].copy()
+    # Replace batch number with batch names
+    clusterBatchDF.replace({'batch': tissueIdDict}, inplace=True)
+    # Remove index for groupby
+    clusterBatchDF.reset_index(drop=True, inplace=True)
+    # Get the number of cells for each cluster in every tissue
+    ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','{0}'.format(cluster_key)]).size()
+    # Get the percent of cells for each cluster in every tissue 
+    pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['{0}'.format(cluster_key)], values=clusterBatchDF['{0}'.format(cluster_key)], aggfunc='count', normalize='index')
+    # Plot the barplots
+    fig = plt.figure(figsize=(16,6)); fig.suptitle("Cells for each {0} in each tissue".format(cluster_key))
+    # plot numbers of cells
+    ax = fig.add_subplot(1, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+    # plot percent of cells
+    ax = fig.add_subplot(1, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+    # Shrink current axis by 20%
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    # Put a legend to the right of the current axis
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+    plt.tight_layout() # For non-overlaping subplots
+    plt.savefig("{0}/03_{1}_clustering_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')

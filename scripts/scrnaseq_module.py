@@ -1,0 +1,186 @@
+# Loading the python libraries
+import scanpy as sc
+import scanpy.external as sce
+import pickle
+import logging
+import scanorama
+import trvae
+from textwrap import wrap
+
+# Import user libraries
+from gjainPyLib import *
+
+# For X11 display
+import matplotlib
+# matplotlib.use('TkAgg')
+matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D      # for 3D projection
+from matplotlib.colors import ListedColormap # for sc.palette to colormap
+from itertools import combinations           # pairwise combinations
+
+# Reset random state
+np.random.seed(2105)
+
+# For using R inside python
+# import rpy2's package module
+# Using extensions: To load it each time IPython starts, 
+# list it in configuration file: '/home/rad/.ipython/profile_default/ipython_config.py'
+import rpy2.rinterface_lib.callbacks
+from rpy2.robjects import pandas2ri
+import anndata2ri
+
+# Ignore R warning messages
+rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)
+
+# Automatically convert rpy2 outputs to pandas dataframes
+pandas2ri.activate()
+anndata2ri.activate()
+
+# Loading R libraries
+from rpy2.robjects.packages import importr
+scran        = importr('scran')
+RColorBrewer = importr('RColorBrewer')
+gam          = importr('gam')
+ggplot2      = importr('ggplot2')
+plyr         = importr('plyr')
+MAST         = importr('MAST')
+
+def myfunc():
+    print('hello')
+
+def  perform_qc(adata, plotsDir, bname):
+  """
+  Perform QC analysis and generate QC plots
+  """
+  # Make a copy of qcadata
+  qcadata = adata.copy()
+  
+  # 1.2.1) Calculate QC covariates
+  print("- Shape {0}".format(qcadata.to_df().shape))
+  sc.pp.calculate_qc_metrics(qcadata, inplace=True) # we now have many additional data types in the obs slot:
+  qcadata.obs['n_counts']   = qcadata.X.sum(1)
+  qcadata.obs['log_counts'] = np.log(qcadata.obs['n_counts'])
+  qcadata.obs['n_genes']    = (qcadata.X > 0).sum(1)
+  qcadata
+  # obs: 'n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'pct_counts_in_top_50_genes', 'pct_counts_in_top_100_genes', 'pct_counts_in_top_200_genes', 'pct_counts_in_top_500_genes', 'n_counts', 'log_counts', 'n_genes'
+  # var: 'gene_ids', 'feature_types', 'genome', 'n_cells_by_counts', 'mean_counts', 'log1p_mean_counts', 'pct_dropout_by_counts', 'total_counts', 'log1p_total_counts'
+
+  # 1.2.2) Calculate mitochondrial/ribosomal genes fraction (percentage)
+  # For each cell compute fraction of counts in mito/ribo genes vs. all genes
+  mt_gene_mask         = [gene.startswith('mt-') for gene in qcadata.var_names]
+  qcadata.obs['mt_frac'] = qcadata.X[:, mt_gene_mask].sum(1)/qcadata.obs['n_counts']
+  rb_gene_mask         = [gene.startswith(("Rps","Rpl")) for gene in qcadata.var_names]
+  qcadata.obs['rb_frac'] = qcadata.X[:, rb_gene_mask].sum(1)/qcadata.obs['n_counts']
+
+  # 1.2.3) Plot QC metrics
+  fig = plt.figure(figsize=(15,20))
+  # Sample quality plots
+  ax = fig.add_subplot(3, 2, 1); t1 = sc.pl.violin(qcadata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
+  ax = fig.add_subplot(3, 2, 2); t2 = sc.pl.violin(qcadata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
+  # 1.2.4) Thresholdingecision based on counts
+  ax = fig.add_subplot(3, 2, 3); p3 = sns.distplot(qcadata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
+  ax = fig.add_subplot(3, 2, 4); p4 = sns.distplot(qcadata.obs['n_counts'][qcadata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
+  # 1.2.5) Thresholding decision based on genes
+  ax = fig.add_subplot(3, 2, 5); p6 = sns.distplot(qcadata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
+  ax = fig.add_subplot(3, 2, 6); p7 = sns.distplot(qcadata.obs['n_genes'][qcadata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
+  plt.tight_layout()
+  plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+  # 1.2.6) Data quality summary plots
+  p1 = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='mt_frac', show=False)
+  plt.savefig("{0}/01_raw_{1}_genes_counts_mtfrac_scatterplot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  p2 = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', show=False)
+  plt.savefig("{0}/01_raw_{1}_genes_counts_mtfrac_scatterplot_zoomedin.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  p1 = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='rb_frac', show=False)
+  plt.savefig("{0}/01_raw_{1}_genes_counts_rbfrac_scatterplot.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  p2 = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', show=False)
+  plt.savefig("{0}/01_raw_{1}_genes_counts_rbfrac_scatterplot_zoomedin.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+  return qcadata
+
+def qc_plots(qcadata, plotsDir, bname):
+  """
+  Plot QC metrics
+  """
+  n = 5
+  fig = plt.figure(figsize=(15,40))
+  # Sample quality plots
+  ax = fig.add_subplot(n, 2, 1); t1  = sc.pl.violin(qcadata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
+  ax = fig.add_subplot(n, 2, 2); t2  = sc.pl.violin(qcadata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
+  # 1.2.4) Thresholdingecision based on counts
+  ax = fig.add_subplot(n, 2, 3); p3  = sns.distplot(qcadata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
+  ax = fig.add_subplot(n, 2, 4); p4  = sns.distplot(qcadata.obs['n_counts'][qcadata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
+  # 1.2.5) Thresholding decision based on genes
+  ax = fig.add_subplot(n, 2, 5); p6  = sns.distplot(qcadata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
+  ax = fig.add_subplot(n, 2, 6); p7  = sns.distplot(qcadata.obs['n_genes'][qcadata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
+  # 1.2.6) mt fraction plots
+  ax = fig.add_subplot(n, 2, 7); p8  = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
+  ax = fig.add_subplot(n, 2, 8); p9  = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
+  # 1.2.7) rb fraction plots
+  ax = fig.add_subplot(n, 2, 9); p10 = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
+  ax = fig.add_subplot(n, 2, 10);p11 = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
+  # Save plot
+  plt.tight_layout()
+  plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+########################
+# Normalization Modules
+########################
+def cpm_norm(adata, plotsDir, bname):
+  """ 
+  # Total-count normalize (library-size correct) the data matrix X to 10,000 reads per cell, so that counts become comparable among cells
+  """
+  cpmadata = adata.copy()
+  sc.pp.normalize_total(cpmadata, target_sum=1e4)
+  # Logarithmize the data
+  sc.pp.log1p(cpmadata) 
+  cpmadata.raw = cpmadata
+  return cpmadata
+
+def scrna_norm(adata):
+  """
+  Normalization using SCRAN
+
+  Args:
+      adata ([anndata]): [description]
+  """
+  scranadata = adata.copy()
+  # Perform a clustering for scran normalization in clusters
+  adata_pp = scranadata.copy()
+  sc.pp.normalize_per_cell(adata_pp, counts_per_cell_after=1e6)
+  sc.pp.log1p(adata_pp)
+  sc.pp.pca(adata_pp, n_comps=15)
+  sc.pp.neighbors(adata_pp)
+  sc.tl.louvain(adata_pp, key_added='groups', resolution=0.5)
+
+  # Preprocess variables for scran normalization
+  input_groups = adata_pp.obs['groups']
+  data_mat = scranadata.X.T
+  
+  # Run scran in R
+  %%R -i data_mat -i input_groups -o size_factors
+  size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.1)
+  
+  # Delete adata_pp
+  del adata_pp
+  
+  # Visualize the estimated size factors
+  scranadata.obs['size_factors'] = size_factors
+  fig = plt.figure(figsize=(16,6))
+  fig.suptitle('Estimated size factors')
+  ax = fig.add_subplot(1, 2, 1)
+  sc.pl.scatter(scranadata, 'size_factors', 'n_counts', ax=ax, show=False)
+  ax = fig.add_subplot(1, 2, 2)
+  sc.pl.scatter(scranadata, 'size_factors', 'n_genes', ax=ax, show=False)
+  plt.tight_layout()
+  plt.savefig("{0}/02_norm_{1}_scran_sizefactors_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  # Keep the count data in a counts layer
+  scranadata.layers["counts"] = scranadata.X.copy()
+  # Normalize adata 
+  scranadata.X /= scranadata.obs['size_factors'].values[:,None]
+  sc.pp.log1p(scranadata)
+  # Store the full data set in 'raw' as log-normalised data for statistical testing
+  scranadata.raw = scranadata
+
+
