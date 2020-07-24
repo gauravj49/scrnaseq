@@ -1,0 +1,3 @@
+[submodule "scripts/scoreCT"]
+	path = scripts/scoreCT
+	url = https://github.com/LucasESBS/scoreCT

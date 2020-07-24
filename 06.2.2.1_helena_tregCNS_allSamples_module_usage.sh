@@ -7,10 +7,11 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # Loading the python libraries environment
 %load scripts/load_python_modules.py
+%load scripts/scrnaseq_module.py
 
 # System variables and directories
 projName        = "tregCNS"
-output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/{0}/allSamples".format(projName); create_dir("{0}".format(output_dir))
+output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/{0}/allSamples_ohneS515".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
 minGenesPerCell = 200
@@ -50,7 +51,6 @@ tissueFilenames = [
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S511',
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S512',
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S514',
-                    '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S515',
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S516',
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S517',
                     '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/tregCNS/10Xcompatible/S518',
@@ -60,8 +60,8 @@ adatas          = [sc.read_10x_mtx(f) for f in tissueFilenames]
 adatas
 
 # 1.2) Get the dictionary of tissue ids
-tissueIdDict =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S515', '9' :'S516', '10':'S517', '11':'S518', '12':'S519'}
-# tissueIdDict =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S516', '9' :'S517', '10':'S518', '11':'S519'}
+# tissueIdDict =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S515', '9' :'S516', '10':'S517', '11':'S518', '12':'S519'}
+tissueIdDict =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S516', '9' :'S517', '10':'S518', '11':'S519'}
 
 # 1.3) Merge 10x datasets for different mices
 adata = adatas[0].concatenate(adatas[1:])
@@ -83,12 +83,65 @@ adata.obs['tissueID'] = adata.obs['batch'].map(tissueIdDict)
 # 1.6) Calculate and plot QC covariates/metrices
 rawadata = perform_qc(adata, plotsDir, bname)
 
-# 1.7) Plot the QC matrices
-qc_plots(rawadata, plotsDir, bname)
-
-# 1.8) Save the filtered raw adata into a file
+# 1.7) Save the filtered raw adata into a file
 # Write the adata object to file
 adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the filtered raw adata object
 # adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); rawadata  = sc.read_h5ad(adatafile)
 
+########################
+# 2) Normalization
+########################
+cpmadata   = cpm_norm(rawadata, plotsDir, bname)
+scranadata = scran_norm(rawadata, plotsDir, bname)
+
+# 2.2) Save the normalized adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/02_norm_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/02_norm_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
+# normadata = adata.copy()
+
+########################
+# 3) Batch correction
+########################
+cpmcombatadata = combat_bc(cpmadata, plotsDir, bname, batchkey='tissueID')
+
+# 3.2) Save the normalized batch corrected adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/03_norm_all_batchCorrection_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/03_norm_all_batchCorrection_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
+# normadata = adata.copy()
+
+
+
+# 7) Clustering
+# 7.1) Perform clustering - using highly variable genes
+sc.tl.louvain(adata, key_added='louvain', random_state=2105)
+sc.tl.louvain(adata, resolution=1, key_added='louvain_r1', random_state=2105)
+sc.tl.louvain(adata, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
+sc.tl.louvain(adata, resolution=2.0, key_added='louvain_r2', random_state=2105)
+
+for i in np.linspace(0.1,0.9,9):
+    try:
+        sc.tl.louvain(adata, resolution=i, key_added='louvain_r{0}'.format(i), random_state=2105)
+        print(adata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
+    except:
+        print("- Error in r: {0}".format(i))
+sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
+
+# 4.3) Visualizations
+
+# Calculations for the visualizations
+sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+sc.pp.neighbors(adata, random_state = 2105, use_rep = "SC")
+sc.tl.umap(adata, random_state = 2105, n_components=3)
+
+# Plot visualizations
+# Visualize the clustering and how this is reflected by different technical covariates
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/03_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/03_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')

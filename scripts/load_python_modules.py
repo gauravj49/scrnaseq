@@ -21,6 +21,10 @@ from mpl_toolkits.mplot3d import Axes3D      # for 3D projection
 from matplotlib.colors import ListedColormap # for sc.palette to colormap
 from itertools import combinations           # pairwise combinations
 
+# Third party libraries
+sys.path.append('/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/scripts/scoreCT/src/')
+import scorect_api as ct
+
 # Reset random state
 np.random.seed(2105)
 
@@ -28,6 +32,7 @@ np.random.seed(2105)
 # import rpy2's package module
 # Using extensions: To load it each time IPython starts, 
 # list it in configuration file: '/home/rad/.ipython/profile_default/ipython_config.py'
+import rpy2.robjects as robjects
 import rpy2.rinterface_lib.callbacks
 from rpy2.robjects import pandas2ri
 import anndata2ri
@@ -47,3 +52,4 @@ gam          = importr('gam')
 ggplot2      = importr('ggplot2')
 plyr         = importr('plyr')
 MAST         = importr('MAST')
+
