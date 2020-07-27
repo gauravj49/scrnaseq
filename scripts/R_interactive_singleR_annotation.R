@@ -64,3 +64,10 @@ ImmGenRefadataSE      <- SingleR(test = adataSE, ref = ImmGenRef, assay.type.tes
 #                79               313                13                 3
 #               NKT     Stromal cells           T cells               Tgd
 #                24                15                23                 5
+
+# Save output as text files
+outputImmGenAnnFile   <- "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/tregCNS/individual_samples/S509/data/05_markerGenes_S509_SingleR_ImmGenRef.txt"
+outputMouseRnaAnnFile <- "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/tregCNS/individual_samples/S509/data/05_markerGenes_S509_SingleR_MouseRNAseqRef.txt"
+
+write.table(data.frame("cellIDs" = rownames(ImmGenRefadataSE),ImmGenRefadataSE)          , file = outputImmGenAnnFile  , row.names = FALSE, col.names=T, sep = '\t', quote = F)
+write.table(data.frame("cellIDs" = rownames(MouseRNAseqRefadataSE),MouseRNAseqRefadataSE), file = outputMouseRnaAnnFile, row.names = FALSE, col.names=T, sep = '\t', quote = F)

@@ -55,8 +55,34 @@ cluster_bname      = "louvain_r1"
 cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
 cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
 
+# Read in the SingeR annotated cell data
+inputImmGenAnnFile   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/tregCNS/individual_samples/S509/data/05_markerGenes_S509_SingleR_ImmGenRef.txt"
+inputMouseRnaAnnFile = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/tregCNS/individual_samples/S509/data/05_markerGenes_S509_SingleR_MouseRNAseqRef.txt"
+
+ImmGenAnnDF = pd.read_csv(inputImmGenAnnFile, sep='\t', usecols=['cellIDs', 'labels'], index_col=['cellIDs'], quoting=3);
+adata.obs['ImmGenLabels'] = ImmGenAnnDF['labels'].astype('category').values
+
+MouseRnaseqAnnDF = pd.read_csv(inputMouseRnaAnnFile, sep='\t', usecols=['cellIDs', 'labels'], index_col=['cellIDs'], quoting=3);
+adata.obs['MouseRnaseqLabels'] = MouseRnaseqAnnDF['labels'].astype('category').values
 
 
+# Louvain UMAPs
+fig = plt.figure(figsize=(36,16))
+c = 3
+# 2D projection
+ax = fig.add_subplot(2, c, 1);                  sc.pl.umap(adata, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(adata, ax=ax, color="ImmGenLabels", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata, ax=ax, color="MouseRnaseqLabels", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
+# 3D projection
+ax = fig.add_subplot(2, c, 4, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(adata         , ax=ax, color="ImmGenLabels"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(adata         , ax=ax, color="MouseRnaseqLabels"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MouseRnaseqLabels UMAP")
+plt.tight_layout()
+plt.savefig("{0}/03_{1}_louvain_mt_frac_ImmGenLabels_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+
+
+sc.pl.umap(adata, color=['louvain_r1', 'MouseRnaseqLabels', 'Foxp1', 'Cd3d'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9)
 
 
 
