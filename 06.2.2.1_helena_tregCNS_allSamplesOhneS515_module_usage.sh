@@ -9,6 +9,12 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 %load scripts/load_python_modules.py
 %load scripts/scrnaseq_module.py
 
+# For filtering criteria
+# https://krishnaswamylab.github.io/tutorial/load_filter_transform/
+# For the below dataset, I would remove all cells with more than 25,000 UMI / cell 
+# in fear they might represent doublets of cells. I will generally also remove all 
+# cells with fewer than 500 reads per cell.
+
 # System variables and directories
 projName        = "tregCNS"
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/{0}/allSamples_ohneS515".format(projName); create_dir("{0}".format(output_dir))
@@ -82,6 +88,17 @@ adata.obs['tissueID'] = adata.obs['batch'].map(tissueIdDict)
 
 # 1.6) Calculate and plot QC covariates/metrices
 rawadata = perform_qc(adata, plotsDir, bname)
+# - Unfiltered rawqcadata shape: (28632, 55471)
+#     Total number of cells: 28632
+#     Number of cells after min count filter: 26139
+#     Number of cells after max count filter: 26116
+#     Number of cells after MT filter  : 26098
+#     Number of cells after Ribo filter: 25329
+#     Number of cells after gene filter: 24891
+
+#     Total number of genes: 55471
+#     Number of genes after minCellsPergene filter: 16617
+# - Filtered rawqcadata shape: (24891, 16617)
 
 # 1.7) Save the filtered raw adata into a file
 # Write the adata object to file
