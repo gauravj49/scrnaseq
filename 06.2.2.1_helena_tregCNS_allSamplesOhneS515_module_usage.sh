@@ -102,7 +102,7 @@ rawadata = perform_qc(adata, plotsDir, bname)
 
 # 1.7) Save the filtered raw adata into a file
 # Write the adata object to file
-adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); rawadata.write(adatafile)
 # # Read back the filtered raw adata object
 # adatafile  = "{0}/01_raw_{1}_adata.h5ad" .format(dataDir, projName); rawadata  = sc.read_h5ad(adatafile)
 

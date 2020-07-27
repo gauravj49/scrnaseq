@@ -356,6 +356,16 @@ g2m_genes_mm_ens = scranadata.var_names[np.in1d(scranadata.var_names, g2m_genes_
 sc.tl.score_genes_cell_cycle(cpmadata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 sc.tl.score_genes_cell_cycle(scranadata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 
+# Compute variable genes
+# We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
+sc.pp.highly_variable_genes(scranadata, flavor='cell_ranger')
+print('\n','Number of highly variable genes: {:d}'.format(np.sum(scranadata.var['highly_variable'])))
+
+# Calculations for the visualizations
+sc.pp.pca(scranadata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+sc.pp.neighbors(scranadata)
+sc.tl.umap(scranadata, random_state = 2105, n_components=3)
+
 # 4.3) Visualize the effects of cell cycle
 fig = plt.figure(figsize=(16,12))
 fig.suptitle('Effects of Cell Cycle')
