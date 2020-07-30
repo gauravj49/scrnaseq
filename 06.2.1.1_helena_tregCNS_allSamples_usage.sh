@@ -440,7 +440,8 @@ var_genes_batch = scranadata2.var.highly_variable_nbatches > 0
 var_select = scranadata2.var.highly_variable_nbatches > 1
 var_genes = var_select.index[var_select]
 # Split per batch into new objects.
-batches = ['0','1','2','3','4','5','6','7','8','9','10','11','12']
+# batches = ['0','1','2','3','4','5','6','7','8','9','10','11','12']
+batches = list(tissueIdDict.keys())
 scranalldata = {}
 for batch in batches:
     scranalldata[batch] = scranadata2[scranadata2.obs['batch'] == batch,]

@@ -424,7 +424,6 @@ rawadatas = adatas.copy()
 # adata  = normadata.copy()
 # adatas = rawadata.copy()
 # 5) Technical correction: Batch Correction using TrVAE
-
 # 5.1) Normalizing & Extracting Top 1000 Highly Variable Genes
 # We can preserve more genes (up to 7000 like scGen) but in order to train the network quickly, we will extract top 1000 genes
 adata2 = adata.copy()

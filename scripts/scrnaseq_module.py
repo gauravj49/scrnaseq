@@ -55,6 +55,9 @@ def  perform_qc(adata, plotsDir, bname):
   # Plot filtered QC data
   print("- Plot filtered QC data")
   qc_plots(qcadata, plotsDir, "{0}_filtered".format(bname))
+  
+  print("- Plot filtered QC data UMAPs")
+  plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), 25)
 
   return qcadata
 
@@ -82,6 +85,72 @@ def qc_plots(qcadata, plotsDir, bname):
   # Save plot
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def plot_raw_umap(qcadata, plotsDir, bname, num_neighbors=15):
+  # # For debugging purpose
+  # qcadata=rawadata.copy()
+  # 1.2.9) Compute variable genes
+  # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
+  sc.pp.highly_variable_genes(qcadata, flavor='cell_ranger')
+  print('\n','Number of highly variable genes: {:d}'.format(np.sum(qcadata.var['highly_variable'])))
+
+  # 1.2.10) Calculations for the visualizations
+  sc.pp.pca(qcadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+  sc.pp.neighbors(qcadata, random_state = 2105, n_neighbors=num_neighbors)
+  sc.tl.umap(qcadata, random_state = 2105, n_components=3)
+
+  # 1.2.11) Plot visualizations
+  sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
+  plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  # UMAPS
+  fig = plt.figure(figsize=(20,32))
+  # 2D projection
+  ax = fig.add_subplot(4, 2, 1);                  sc.pl.umap(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 3);                  sc.pl.umap(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 5);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+  ax = fig.add_subplot(4, 2, 7);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
+  # 3D projection
+  ax = fig.add_subplot(4, 2, 2, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 4, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 6, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+  ax = fig.add_subplot(4, 2, 8, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="rb_frac UMAP")
+  plt.tight_layout()
+  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
+  """[summary]
+
+  Returns:
+      [type]: [description]
+  """
+  # Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+  cluster_key_groups = qcadata.obs[cluster_key].cat.categories.tolist()
+  cluster_cell_count = qcadata.obs[cluster_key].value_counts().to_dict()
+
+  # Get the color palette as variable from the string
+  # https://stackoverflow.com/questions/1373164/how-do-i-create-a-variable-number-of-variables
+  final_color_palette = getattr(sc.pl.palettes, color_palette)
+  # Louvain UMAPs
+  subplot_title_fontsize = 12
+  subplot_title_width    = 50
+  ncols  = len(cluster_key_groups) + 1
+  fig = plt.figure(figsize=(20, 7*ncols))
+  fig.suptitle("{0} UMAP".format(cluster_key))
+  # Main Louvain Cluster
+  ax = fig.add_subplot(ncols,2, 1); sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+  ax = fig.add_subplot(ncols,2, 2, projection='3d'); sc.pl.umap(qcadata, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+  # Partial visualizaton of a subset of groups in embedding
+  m=3; n=4
+  for i,b in enumerate(cluster_key_groups):
+    print(i, b)
+    # ax = fig.add_subplot(ncols,2, i+m);                  sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    # ax = fig.add_subplot(ncols,2, i+n, projection='3d'); sc.pl.umap(qcadata                 , ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(ncols,2, i+m);                  sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(ncols,2, i+n, projection='3d'); sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b]                 , ax=ax, color=cluster_key, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    m+=1; n+=1
+
+  plt.tight_layout()
+  plt.savefig("{0}/{4}_{3}_{1}_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
 ########################
 # Normalization Modules
@@ -194,3 +263,39 @@ def scanorama_bc(adata, plotsDir, bname, batchkey='batch'):
   # Add to the AnnData object
   cpmscanoramaadata = adata.copy()
   cpmscanoramaadata.obsm["SC"] = cpmall_s
+
+
+  def cell_cycle_correction():
+    """[summary]
+    """
+    # 4) Biological correction
+    # 4.1) Read cell cycle genes
+    cc_genes         = pd.read_table(ccGenes_macosko, delimiter='\t')
+    s_genes          = cc_genes['S'].dropna()
+    g2m_genes        = cc_genes['G2.M'].dropna()
+    # For mouse only
+    s_genes_mm       = [gene.lower().capitalize() for gene in s_genes]
+    g2m_genes_mm     = [gene.lower().capitalize() for gene in g2m_genes]
+    s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
+    g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
+    # 4.2) Score cell cycle genes
+    sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
+
+    # 4.3) Visualize the effects of cell cycle
+    # Calculations for the visualizations
+    sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+    sc.pp.neighbors(adata)
+    sc.tl.umap(adata, random_state = 2105, n_components=3)
+
+    fig = plt.figure(figsize=(16,12))
+    fig.suptitle('Effects of Cell Cycle')
+    ax = fig.add_subplot(2, 2, 1)
+    sc.pl.umap(adata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+    ax = fig.add_subplot(2, 2, 2)
+    sc.pl.umap(adata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+    ax = fig.add_subplot(2, 2, 3)
+    sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+    ax = fig.add_subplot(2, 2, 4, projection='3d')
+    sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+    plt.tight_layout()
+    plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
