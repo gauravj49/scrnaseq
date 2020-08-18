@@ -265,8 +265,8 @@ def scanorama_bc(adata, plotsDir, bname, batchkey='batch'):
   cpmscanoramaadata.obsm["SC"] = cpmall_s
 
 
-  def cell_cycle_correction():
-    """[summary]
+  def cell_cycle_correction(adata, plotsDir, bname):
+    """
     """
     # 4) Biological correction
     # 4.1) Read cell cycle genes
