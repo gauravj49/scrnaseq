@@ -35,6 +35,8 @@ np.random.seed(2105)
 # Using extensions: To load it each time IPython starts, 
 # list it in configuration file: '/home/rad/.ipython/profile_default/ipython_config.py'
 import rpy2.robjects as robjects
+import rpy2.robjects.packages as rpackages
+from rpy2.robjects.vectors import StrVector
 import rpy2.rinterface_lib.callbacks
 from rpy2.robjects import pandas2ri
 import anndata2ri

@@ -29,28 +29,41 @@ def  perform_qc(adata, plotsDir, bname):
   print("- Plot unfiltered QC data")
   qc_plots(qcadata, plotsDir, "{0}_unfiltered".format(bname))
 
+  # Write the information in the log file
+  f = open("{0}/data/01_QC_info_cells_genes.txt".format(get_file_info(plotsDir)[0]), "w")
   # 1.2.3) Filter cells according to identified QC thresholds:
+  f.write("- Unfiltered rawqcadata shape: {0}".format(qcadata.shape))
   print('Total number of cells: {:d}'.format(qcadata.n_obs))
+  f.write('\n\n- Total number of cells: {:d}'.format(qcadata.n_obs))
   sc.pp.filter_cells(qcadata, min_counts = minCountPerCell)
   print('Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
+  f.write('\n\t- Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
 
   sc.pp.filter_cells(qcadata, max_counts = maxCountPerCell)
   print('Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
+  f.write('\n\t- Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
 
   qcadata = qcadata[qcadata.obs['mt_frac'] < mtGenesFilter]
   print('Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
+  f.write('\n\t- Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
   qcadata = qcadata[qcadata.obs['rb_frac'] < rbGenesFilter]
   print('Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
+  f.write('\n\t- Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
 
   sc.pp.filter_cells(qcadata, min_genes = minGenesPerCell)
   print('Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
+  f.write('\n\t- Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
 
   # 1.2.4) Filter genes according to identified QC thresholds:
   print('Total number of genes: {:d}'.format(qcadata.n_vars))
+  f.write('\n\n- Total number of genes: {:d}'.format(qcadata.n_vars))
   sc.pp.filter_genes(qcadata, min_cells=minCellsPergene)
   print('Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
+  f.write('\n\t- Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
 
   print("- Filtered rawqcadata shape: {0}".format(qcadata.shape))
+  f.write("\n\n- Filtered rawqcadata shape: {0}".format(qcadata.shape))
+  f.close()
 
   # Plot filtered QC data
   print("- Plot filtered QC data")
@@ -190,7 +203,7 @@ def scran_norm(adata, plotsDir, bname):
   # https://rpy.sourceforge.io/rpy2/doc-dev/html/introduction.html
   robjects.globalenv["data_mat"] = data_mat
   robjects.globalenv["input_groups"] = input_groups
-  size_factors = scran.computeSumFactors(data_mat, clusters=input_groups, min_mean=0.1)
+  size_factors = scran.computeSumFactors(data_mat, clusters=input_groups)
   
   # Delete adata_pp
   del adata_pp
@@ -229,73 +242,72 @@ def combat_bc(adata, plotsDir, bname, batchkey='tissueID'):
   sc.pp.combat(combatadata, key=batchkey)
   return combatadata
 
-def scanorama_bc(adata, plotsDir, bname, batchkey='batch'):
+def scanorama_bc(qcadata, plotsDir, bname, batchkey='batch'):
   """
   Batch correction using scanorama
 
   Args:
       adata ([anndata]): [description]
   """
-  cpmadata2 = sc.AnnData(X=cpmadata.X, var=cpmadata.var, obs = cpmadata.obs)
+  qcadata2 = sc.AnnData(X=qcadata.X, var=qcadata.var, obs = qcadata.obs)
   # Variable genes for the full dataset
-  sc.pp.highly_variable_genes(cpmadata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = batchkey)
-  var_genes_batch = cpmadata2.var.highly_variable_nbatches > 0
-  var_select = cpmadata2.var.highly_variable_nbatches > 1
+  sc.pp.highly_variable_genes(qcadata2, min_mean=0.0125, max_mean=3, min_disp=0.5, batch_key = batchkey)
+  var_genes_batch = qcadata2.var.highly_variable_nbatches > 0
+  var_select = qcadata2.var.highly_variable_nbatches > 1
   var_genes = var_select.index[var_select]
   # Split per batch into new objects.
   batches = ['0','1','2','3','4','5','6','7','8','9','10','11','12']
-  cpmalldata = {}
+  qcalladata = {}
   for batch in batches:
-      cpmalldata[batch] = cpmadata2[cpmadata2.obs[batchkey] == batch,]
+      qcalladata[batch] = qcadata2[qcadata2.obs[batchkey] == batch,]
 
   # Subset the individual dataset to the same variable genes as in MNN-correct.
-  cpmalldata2 = dict()
-  for ds in cpmalldata.keys():
+  qcalladata2 = dict()
+  for ds in qcalladata.keys():
       print(ds)
-      cpmalldata2[ds] = cpmalldata[ds][:,var_genes]
+      qcalladata2[ds] = qcalladata[ds][:,var_genes]
   # Convert to list of AnnData objects
-  comnormadatas = list(cpmalldata2.values())
+  qcnormadatas = list(qcalladata2.values())
   # Run scanorama.integrate
-  cpmscanorama  = scanorama.integrate_scanpy(comnormadatas, dimred = 50,)
+  qcscanorama  = scanorama.integrate_scanpy(qcnormadatas, dimred = 50,)
   # Make into one matrix.
-  cpmall_s = np.concatenate(cpmscanorama)
-  print(cpmall_s.shape)
-  # Add to the AnnData object
-  cpmscanoramaadata = adata.copy()
-  cpmscanoramaadata.obsm["SC"] = cpmall_s
+  qcall_s = np.concatenate(qcscanorama)
+  print(qcall_s.shape)
 
+  return qcall_s
 
-  def cell_cycle_correction(adata, plotsDir, bname):
-    """
-    """
-    # 4) Biological correction
-    # 4.1) Read cell cycle genes
-    cc_genes         = pd.read_table(ccGenes_macosko, delimiter='\t')
-    s_genes          = cc_genes['S'].dropna()
-    g2m_genes        = cc_genes['G2.M'].dropna()
-    # For mouse only
-    s_genes_mm       = [gene.lower().capitalize() for gene in s_genes]
-    g2m_genes_mm     = [gene.lower().capitalize() for gene in g2m_genes]
-    s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
-    g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
-    # 4.2) Score cell cycle genes
-    sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
+def cell_cycle_correction(adata, plotsDir, bname):
+  """
 
-    # 4.3) Visualize the effects of cell cycle
-    # Calculations for the visualizations
-    sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
-    sc.pp.neighbors(adata)
-    sc.tl.umap(adata, random_state = 2105, n_components=3)
+  """
+  # 4) Biological correction
+  # 4.1) Read cell cycle genes
+  cc_genes         = pd.read_table(ccGenes_macosko, delimiter='\t')
+  s_genes          = cc_genes['S'].dropna()
+  g2m_genes        = cc_genes['G2.M'].dropna()
+  # For mouse only
+  s_genes_mm       = [gene.lower().capitalize() for gene in s_genes]
+  g2m_genes_mm     = [gene.lower().capitalize() for gene in g2m_genes]
+  s_genes_mm_ens   = adata.var_names[np.in1d(adata.var_names, s_genes_mm)]
+  g2m_genes_mm_ens = adata.var_names[np.in1d(adata.var_names, g2m_genes_mm)]
+  # 4.2) Score cell cycle genes
+  sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes_mm_ens, g2m_genes=g2m_genes_mm_ens)
 
-    fig = plt.figure(figsize=(16,12))
-    fig.suptitle('Effects of Cell Cycle')
-    ax = fig.add_subplot(2, 2, 1)
-    sc.pl.umap(adata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-    ax = fig.add_subplot(2, 2, 2)
-    sc.pl.umap(adata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-    ax = fig.add_subplot(2, 2, 3)
-    sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
-    ax = fig.add_subplot(2, 2, 4, projection='3d')
-    sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
-    plt.tight_layout()
-    plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
+  # 4.3) Visualize the effects of cell cycle
+  # Calculations for the visualizations
+  sc.pp.pca(adata, n_comps=50, use_highly_variable=True, svd_solver='arpack')
+  sc.pp.neighbors(adata)
+  sc.tl.umap(adata, random_state = 2105, n_components=3)
+
+  fig = plt.figure(figsize=(16,12))
+  fig.suptitle('Effects of Cell Cycle')
+  ax = fig.add_subplot(2, 2, 1)
+  sc.pl.umap(adata, color=['S_score']  , ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  ax = fig.add_subplot(2, 2, 2)
+  sc.pl.umap(adata, color=['G2M_score'], ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  ax = fig.add_subplot(2, 2, 3)
+  sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+  ax = fig.add_subplot(2, 2, 4, projection='3d')
+  sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+  plt.tight_layout()
+  plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
