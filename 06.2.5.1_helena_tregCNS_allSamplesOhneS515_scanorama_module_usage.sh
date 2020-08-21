@@ -8,6 +8,8 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # Loading the python libraries environment
 %load scripts/load_python_modules.py
+
+
 %load scripts/scrnaseq_module.py
 
 # For filtering criteria
@@ -68,7 +70,7 @@ adatas
 
 # 1.2) Get the dictionary of tissue ids
 sampleIDDict  =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S516', '9' :'S517', '10':'S518', '11':'S519'}
-conditionDict =  {'0' :'Naive', '1' :'Naive', '2' :'Naive', '3' :'Peak', '4' :'Peak', '5' :'Peak', '6' :'Peak', '7' :'Remission', '8' :'Remission', '9' :'Remission', '10':'Remission', 'Remission':'Remission'}
+conditionDict =  {'0' :'Naive', '1' :'Naive', '2' :'Naive', '3' :'Peak', '4' :'Peak', '5' :'Peak', '6' :'Peak', '7' :'Remission', '8' :'Remission', '9' :'Remission', '10':'Remission', '11':'Remission'}
 
 # 1.3) Merge 10x datasets for different mices
 adata = adatas[0].concatenate(adatas[1:])
@@ -130,7 +132,7 @@ input_groups = adata_pp.obs['groups']
 data_mat = adata.X.T
 # Run scran in R
 %%R -i data_mat -i input_groups -o size_factors
-size_factors = computeSumFactors(data_mat, clusters=input_groups, min.mean=0.25)
+size_factors = computeSumFactors(data_mat, clusters=input_groups)
 # Delete adata_pp
 del adata_pp
 # Visualize the estimated size factors
@@ -170,136 +172,72 @@ normadata = adata.copy()
 rawadatas = adatas.copy()
 
 # 4.1) Technical correction: Batch Correction using scanorama
-qcall_s = scanorama_bc(qcadata, plotsDir, bname, batchkey='sampleID')
+qcall_s = scanorama_bc(adata, plotsDir, bname, batchkey='batch')
 # Add to the AnnData object
-scanoramaadata = adata.copy()
-scanoramaadata.obsm["SC"] = qcall_s
+adata.obsm["SC"] = qcall_s
 
-# 5.1) Normalizing & Extracting Top 2000 Highly Variable Genes
-# One can use more genes but in order to train the network quickly, we will extract top 2000 genes. This can be done with normalize_hvg function in the tl module of trVAE package. The function accepts the following arguments:
-# - adata: adata containing raw counts in its .X attribute.
-# - target_sum: total counts per cell after normalization
-# - size_factors: whether to normalize the adata and put total counts per cell in "size_factors" column of adata.obs (True is recommended).
-# - scale_input: whether to scale the dataset after normalization (False is recommended).
-# - logtrans_input: whether to log-transform the adata after normalization (True is recommended).
-# - n_top_genes: number of highly variable genes to be selected after adata normalization.
-
-condition_key = "sampleID"
-adata2 = trvae.tl.normalize_hvg(adata, target_sum=1e4, size_factors=True, scale_input=False, logtrans_input=True, n_top_genes=2000)
-adata2
-
-# Calculate number of batches
-conditions = adata2.obs[condition_key].unique().tolist()
-
-# Create the network
-# Some of network parameters:
-# - x_dimension: size input features (necessary)
-# - conditons: list of unique batches(studies) names
-# - architecture: architecture of the network (optional)
-# - output_activation: activation function of trVAE's last layer
-# - alpha: coefficient of KL Divergence loss (optional)
-# - beta: coefficient of MMD loss (optional)
-# - eta: coefficient of reconstruction (MSE or SSE) loss (optional) can be one of the relu, leaky_relu, linear, ...
-# - gene_names: list of gene names (adata.var_names.tolist())
-# - loss_fn: trVAE's loss function (Has to be one of mse or sse)
-network = trvae.models.trVAE(x_dimension=adata2.shape[1], architecture=[256,64], z_dimension=10, gene_names=adata2.var_names.tolist(), conditions=conditions, model_path=dataDir, alpha=0.0001, beta=50, eta=100, loss_fn='sse', output_activation='linear')
-
-# Training trVAE
-# You can train scArches with train function with the following parameters:
-
-# adata: Annotated dataset used for training and evaluating scArches.
-# - condition_key: name of the column in obs matrix in adata which contains the batch_id for each sample.
-# - n_epochs: number of epochs used to train scArches.
-# - batch_size: number of sample used to sample as mini-batches in order to optimize scArches. Please NOTE that for MSE loss with MMD regularization batch sizes upper that 512 is highly recommended
-# - save: whether to save scArches' model and configs after training phase or not.
-# - retrain: if False and scArches' pretrained model exists in model_path, will restore scArches' weights. Otherwise will train and validate scArches on adata.
-network.train(adata2, condition_key, train_size=0.8, n_epochs=500, batch_size=2048, early_stop_limit=300, lr_reducer=20, verbose=5, save=True, )
-
-# 5.6) Getting batch-corrected adata
-# Now two matrices have been added to adata
-# mmd_latent: (numpy ndarray) output of MMD Layer in trVAE
-# reconstructed: (numpy ndarray) reconstructed data with dimension of original feature space
-# z_latent: (numpy ndarray) output of bottleneck layer of trVAE (optional)
-# For evaluating how good trVAE has corrected the batches, we recommend using mmd_latent matrix.
-labels, _ = trvae.tl.label_encoder(adata2, condition_key=condition_key, label_encoder=condition_encoder)
-network.get_corrected(adata2, labels, return_z=True)
-
-# 5.7) MMD Layer UMAP visualization
-# mmd_latent = adata2.obsm['mmd_latent']
-# mmd_adata = sc.AnnData(mmd_latent, obs=adata2.obs)
-# mmd_adata
-adata.obsm['mmd_latent']    = adata2.obsm['mmd_latent']
-adata.obsm['z_latent']      = adata2.obsm['z_latent']
-adata.obsm['reconstructed'] = adata2.obsm['reconstructed']
-# sc.pp.neighbors(adata, random_state = 2105, n_neighbors=10, use_rep = "mmd_latent")
-sc.pp.neighbors(adata, random_state = 2105, use_rep = "mmd_latent")
-sc.tl.umap(adata, random_state = 2105, n_components=3)
-
-# # Getting corrected latent adata
-# # if you use trVAE for batch-removal we recommend to use z Latent space computed using get_latent function This function has the following parameters:
-# # - adata: Annotated dataset to be transformed to latent space
-# # - batch_key: Name of the column in obs matrix in adata which contains the study for each sample.
-# latent_adata = network.get_latent(adata2, condition_key, return_z=True)
-# latent_adata
-
-# # Get corrected gene expression data¶
-# # we transfer all conditions to the batch labels with maximum number of samples. target_condition is the the condtion that you want your source adata be transformed to
-adata.obs[condition_key].value_counts()
-target_condition = adata.obs[condition_key].value_counts().index[0]
-corrected_data   = network.predict(adata,condition_key,target_condition=target_condition)
-
-# # Compute variable genes
-# # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
-# sc.pp.highly_variable_genes(corrected_data, flavor='cell_ranger')
-# print('\n','Number of highly variable genes: {:d}'.format(np.sum(corrected_data.var['highly_variable'])))
-
-# # UMAP visualization of corrected gene expression
-# # adata = corrected_data.copy()
+# corrected_data = adata.copy()
+# UMAP visualization of corrected gene expression
+# adata = corrected_data.copy()
 # sc.pp.neighbors(corrected_data, n_neighbors=25)
 # sc.tl.umap(corrected_data, random_state = 2105, n_components=3)
 
-fig = plt.figure(figsize=(16,13))
-fig.suptitle('sampleID')
+fig = plt.figure(figsize=(36,16)); c = 4
 # 2D projection
-ax = fig.add_subplot(2, 2, 1);                  sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 2);                  sc.pl.umap(corrected_data   , legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
-# 3D projection 
-ax = fig.add_subplot(2, 2, 3, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw UMAP")
-ax = fig.add_subplot(2, 2, 4, projection='3d'); sc.pl.umap(corrected_data                    , ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE UMAP")
+ax = fig.add_subplot(2, c, 1);                  sc.pl.umap(rawadata, ax=ax, color="sampleID" , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw SampleID")
+ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(rawadata, ax=ax, color="condition", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw Condition")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata   , ax=ax, color="sampleID" , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama SampleID")
+ax = fig.add_subplot(2, c, 4);                  sc.pl.umap(adata   , ax=ax, color="condition", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama Condition")
+# 3D projection
+ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="sampleID"      , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw SampleID")
+ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="condition"     , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw Condition")
+ax = fig.add_subplot(2, c, 7, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama SampleID")
+ax = fig.add_subplot(2, c, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="condition"     , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Scanorama Condition")
+# Save plot
 plt.tight_layout()
-plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_sampleID_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+plt.savefig("{0}/03_norm_scanorama_batchCorrection_{1}_sampleID_condition_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # Plot individual samples
-plot_individual_cluster_umap(corrected_data, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='03', analysis_stage='scrannorm_scanorama_batchCorrection')
-
+plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key='sampleID' , cluster_bname='sampleID' , analysis_stage_num='03', analysis_stage='scrannorm_scanorama_batchCorrection')
+plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key='condition', cluster_bname='condition', analysis_stage_num='03', analysis_stage='scrannorm_scanorama_batchCorrection')
 
 # Plot tsne
-sc.tl.tsne(corrected_data, random_state = 2105, perplexity=35, n_pcs=50)
+sc.tl.tsne(adata   , random_state = 2105, perplexity=35, n_pcs=50)
 sc.tl.tsne(rawadata, random_state = 2105, perplexity=35, n_pcs=50)
 
+# sampleID
 fig = plt.figure(figsize=(16,8))
 fig.suptitle('sampleID')
 # 2D projection
-ax = fig.add_subplot(1, 2, 1);                  sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(1, 2, 2);                  sc.pl.tsne(corrected_data           , ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
+ax = fig.add_subplot(1, 2, 1);                  sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw TSNE")
+ax = fig.add_subplot(1, 2, 2);                  sc.pl.tsne(adata                    , ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama TSNE")
 plt.tight_layout()
-plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_sampleID_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+plt.savefig("{0}/03_norm_scanorama_batchCorrection_{1}_sampleID_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Condition
+fig = plt.figure(figsize=(16,8))
+fig.suptitle('condition')
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="condition", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw TSNE")
+ax = fig.add_subplot(1, 2, 2);                  sc.pl.tsne(adata                    , ax=ax, color="condition", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Scanorama TSNE")
+plt.tight_layout()
+plt.savefig("{0}/03_norm_scanorama_batchCorrection_{1}_condition_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # 3.2) Save the normalized batch corrected adata into a file
 # Write the adata and cadata object to file
-adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); corrected_data.write(adatafile)
+adatafile  = "{0}/03_norm_scanorama_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the corrected adata object
-# adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); trvaeBCadata  = sc.read_h5ad(adatafile)
+# adatafile  = "{0}/03_norm_scanorama_batchCorrection_{1}_adata.h5ad" .format(dataDir, projName); scanoramaBCadata  = sc.read_h5ad(adatafile)
 
 ########################
 # 5) Automated annotation using SingleR
 ########################
 
-adataMatFile  = "{0}/04_{1}_scran_trvae_adata.matrix" .format(dataDir, projName);
+adataMatFile  = "{0}/04_{1}_scran_scanorama_adata.matrix" .format(dataDir, projName);
 adata.to_df().T.to_csv(adataMatFile, index=True, header=True, sep="\t")
 os.system("Rscript scripts/R_annotate_cells_using_singleR.R -if={0} -of={0}".format(adataMatFile))
-ImmGenAnnFile   = "{0}/04_{1}_scran_trvae_adata_SingleR_ImmGenRef.txt"     .format(dataDir, projName);
-MouseRnaAnnFile = "{0}/04_{1}_scran_trvae_adata_SingleR_MouseRNAseqRef.txt".format(dataDir, projName);
+ImmGenAnnFile   = "{0}/04_{1}_scran_scanorama_adata_SingleR_ImmGenRef.txt"     .format(dataDir, projName);
+MouseRnaAnnFile = "{0}/04_{1}_scran_scanorama_adata_SingleR_MouseRNAseqRef.txt".format(dataDir, projName);
 
 ########################
 # 6) Clustering
@@ -311,18 +249,20 @@ MouseRnaseqAnnDF = pd.read_csv(MouseRnaAnnFile, sep='\t', usecols=['cellIDs', 'l
 adata.obs['MouseRnaseqLabels'] = MouseRnaseqAnnDF['labels'].astype('category').values
 
 # 6.2) UMAPs
-fig = plt.figure(figsize=(40,16)); c = 3
+fig = plt.figure(figsize=(64,16)); c = 4
 # 2D projection
 ax = fig.add_subplot(2, c, 1);                  sc.pl.umap(adata, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="SampleID")
-ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(adata, ax=ax, color="ImmGenLabels"     , legend_loc='right margin', palette=p, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
-ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata, ax=ax, color="MouseRnaseqLabels", legend_loc='right margin', palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
+ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(adata, ax=ax, color="condition"        , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Condition")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata, ax=ax, color="ImmGenLabels"     , palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 4);                  sc.pl.umap(adata, ax=ax, color="MouseRnaseqLabels", palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
 # 3D projection
-ax = fig.add_subplot(2, c, 4, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="SampleID")
-ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="ImmGenLabels"     , palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="ImmGenLabels UMAP")
-ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="MouseRnaseqLabels", palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MouseRnaseqLabels UMAP")
+ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="SampleID")
+ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="condition"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Condition")
+ax = fig.add_subplot(2, c, 7, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="ImmGenLabels"     , palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 8, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="MouseRnaseqLabels", palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MouseRnaseqLabels UMAP")
 # Save plot
 plt.tight_layout()
-plt.savefig("{0}/04_{1}_sampleID_ImmGenLabels_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+plt.savefig("{0}/04_{1}_sampleID_condition__ImmGenLabels_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # 6.3) Plot individual samples
 plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key='MouseRnaseqLabels', cluster_bname='MouseRnaseqLabels', analysis_stage_num='04', analysis_stage='singleR_UMAP', color_palette="godsnot_102")
