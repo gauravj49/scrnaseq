@@ -56,7 +56,7 @@ adatas
 
 # 1.2) Get the dictionary of tissue ids
 sampleIDDict  =  {'0' :'S503', '1' :'S504', '2' :'S505', '3' :'S508', '4' :'S509', '5' :'S511', '6' :'S512', '7' :'S514', '8' :'S516', '9' :'S517', '10':'S518', '11':'S519'}
-conditionDict =  {'0' :'Naive', '1' :'Naive', '2' :'Naive', '3' :'Peak', '4' :'Peak', '5' :'Peak', '6' :'Peak', '7' :'Remission', '8' :'Remission', '9' :'Remission', '10':'Remission', 'Remission':'Remission'}
+conditionDict =  {'0' :'Naive', '1' :'Naive', '2' :'Naive', '3' :'Peak', '4' :'Peak', '5' :'Peak', '6' :'Peak', '7' :'Remission', '8' :'Remission', '9' :'Remission', '10':'Remission', '11':'Remission'}
 
 # 1.3) Merge 10x datasets for different mices
 adata = adatas[0].concatenate(adatas[1:])
@@ -258,16 +258,41 @@ plot_individual_cluster_umap(corrected_data, plotsDir, bname, cluster_key='sampl
 
 
 # Plot tsne
-sc.tl.tsne(corrected_data, random_state = 2105, perplexity=35, n_pcs=50)
+sc.tl.tsne(adata   , random_state = 2105, perplexity=35, n_pcs=50)
 sc.tl.tsne(rawadata, random_state = 2105, perplexity=35, n_pcs=50)
 
+# SampleID 2D projection
 fig = plt.figure(figsize=(16,8))
 fig.suptitle('sampleID')
-# 2D projection
-ax = fig.add_subplot(1, 2, 1);                  sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
-ax = fig.add_subplot(1, 2, 2);                  sc.pl.tsne(corrected_data           , ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
+ax = fig.add_subplot(1, 2, 1); sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw UMAP")
+ax = fig.add_subplot(1, 2, 2); sc.pl.tsne(adata           , ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE UMAP")
 plt.tight_layout()
 plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_sampleID_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Condition 2D projection
+fig = plt.figure(figsize=(16,8))
+fig.suptitle('condition')
+ax = fig.add_subplot(1, 2, 1); sc.pl.tsne(rawadata, legend_loc=None, ax=ax, color="condition", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw TSNE")
+ax = fig.add_subplot(1, 2, 2); sc.pl.tsne(adata                    , ax=ax, color="condition", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE TSNE")
+plt.tight_layout()
+plt.savefig("{0}/03_norm_TrVAE_batchCorrection_{1}_condition_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Plot sampleID and Conditions for raw and bcdata
+fig = plt.figure(figsize=(36,16)); c = 4
+# 2D projection
+ax = fig.add_subplot(2, c, 1);                  sc.pl.umap(rawadata, ax=ax, color="sampleID" , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw SampleID")
+ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(rawadata, ax=ax, color="condition", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw Condition")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata   , ax=ax, color="sampleID" , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE SampleID")
+ax = fig.add_subplot(2, c, 4);                  sc.pl.umap(adata   , ax=ax, color="condition", legend_loc='right margin', palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE Condition")
+# 3D projection
+ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="sampleID"      , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw SampleID")
+ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None, ax=ax, color="condition"     , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw Condition")
+ax = fig.add_subplot(2, c, 7, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE SampleID")
+ax = fig.add_subplot(2, c, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="condition"     , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE Condition")
+# Save plot
+plt.tight_layout()
+plt.savefig("{0}/03_norm_trVAE_batchCorrection_{1}_sampleID_condition_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
 
 # 3.2) Save the normalized batch corrected adata into a file
 # Write the adata and cadata object to file
