@@ -312,3 +312,59 @@ def cell_cycle_correction(adata, plotsDir, bname):
   sc.pl.umap(adata, color='phase', ax=ax, use_raw=False, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
   plt.tight_layout()
   plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
+
+
+###############################
+# MARKER GENES MODULES
+###############################
+def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name):
+  """
+  Generate the UMAPs and TSNEs for each marker categories
+
+  Args:
+      adata ([anndata]): [description]
+
+  Desc:
+      # Get genes that are present in the adata
+      # l = ['a', 'b', 'c', 'd', 'f']
+      # d = {'A':['a','x','c'], 'B':['c','d'],'C':['x','y']}
+
+      # for k,v in d.items():
+      #   nv = [x for x in v if x in l]
+      #   d[k] = nv
+
+  """
+  for k,v in marker_genes_cellTypes.items():
+    print("\n- Original list {0}: {1}".format(k,v))
+    validgenes = [x for x in v if x in genespresent]
+    ids = np.in1d(adata.var_names,validgenes)
+    print("- Genes present {0}: {1}".format(k,validgenes))
+
+    ngenes = len(validgenes)
+    nrows  = ngenes + 2
+    adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
+
+    fig = plt.figure(figsize=(25,6*nrows))
+    fig.suptitle(marker_list_name)
+    # Plot cluster
+    ax = fig.add_subplot(nrows, 3, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 2, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 3                 ); sc.pl.tsne(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3,                  show=False, title="{0} TSNE".format(cluster_key))
+
+    # Plots mean marker genes
+    ax = fig.add_subplot(nrows, 3, 4);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    ax = fig.add_subplot(nrows, 3, 5, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    ax = fig.add_subplot(nrows, 3, 6);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    
+    # Plot individual marker genes
+    m=n=o=0
+    for i, mgene in enumerate(validgenes):
+      m=7+i*3; n=8+i*3; o=9+i*3;
+      # print("- {0}) {4}: m={1}, n={2}, o={3}".format(i, m, n, o, mgene))
+      ax = fig.add_subplot(nrows, 3, m);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+      ax = fig.add_subplot(nrows, 3, n, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+      ax = fig.add_subplot(nrows, 3, o);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+
+    plt.tight_layout()
+    plt.savefig("{0}/{1}_{2}_{3}_UMAP_TSNE.png".format(markerDir, marker_list_name, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+
