@@ -238,7 +238,7 @@ print('\n','Number of highly variable genes: {:d}'.format(np.sum(corrected_adata
 # 5.8) UMAP visualization of corrected gene expression
 # adata = corrected_adata.copy()
 sc.pp.pca(corrected_adata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
-sc.pp.neighbors(corrected_adata, random_state = 2105, n_neighbors=25)
+sc.pp.neighbors(corrected_adata, random_state = 2105, n_neighbors=10)
 sc.tl.umap(corrected_adata, random_state = 2105, n_components=3)
 # sc.pp.neighbors(corrected_adata, n_neighbors=25)
 # sc.tl.umap(corrected_adata, random_state = 2105, n_components=3)
@@ -446,32 +446,32 @@ sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105
 
 # 7.2) Visualize the clustering and how this is reflected by different technical covariates
 # UMAP
-sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # TSNE
-sc.pl.tsne(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+sc.pl.tsne(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 louvainadata = adata.copy()
 
-cluster_key   = "louvain_r0.5"
-cluster_bname = "louvain_r0_5"
+cluster_key   = "louvain_r1.5"
+cluster_bname = "louvain_r1_5"
 fig = plt.figure(figsize=(32,8))
 # 2D projection
-ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="sampleID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
-ax = fig.add_subplot(2, 5, 2);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="sampleID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 5, 3);                  sc.pl.umap(adata   ,                  ax=ax, color=cluster_key   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-ax = fig.add_subplot(2, 5, 4);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 5, 5);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="sampleID"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
+ax = fig.add_subplot(2, 5, 2);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="sampleID"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 5, 3);                  sc.pl.umap(adata   , legend_loc='on data', ax=ax, color=cluster_key   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 5, 4);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 5, 5);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
 # 3D projection
-ax = fig.add_subplot(2, 5, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
-ax = fig.add_subplot(2, 5, 7, projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 5, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-ax = fig.add_subplot(2, 5, 9, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(adata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 5, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
+ax = fig.add_subplot(2, 5, 7, projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 5, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 5, 9, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(adata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
 plt.tight_layout()
 plt.savefig("{0}/05_normTrVAE_{1}_{2}_sampleID_counts_mtfrac_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
@@ -480,23 +480,28 @@ fig = plt.figure(figsize=(16,6))
 fig.suptitle("{0} UMAP".format(cluster_key))
 # 2D projection
 ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.umap(adata, legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+sc.pl.umap(adata, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
 # 3D projection
 ax = fig.add_subplot(1, 2, 2, projection='3d'); 
-sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/05_normTrVAE_{1}_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 5.3) Plot individual samples
+plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key=cluster_key, cluster_bname=cluster_bname, analysis_stage_num='05', analysis_stage='clustering')
 
 # Louvain TSNEs
 fig = plt.figure(figsize=(16,6))
 fig.suptitle("{0} TSNE".format(cluster_key))
 # 2D projection
 ax = fig.add_subplot(1, 2, 1);                  
-sc.pl.tsne(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+sc.pl.tsne(adata, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(1, 2, 2);                  
+sc.pl.tsne(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
 plt.savefig("{0}/05_normTrVAE_{1}_clustering_{2}_TSNE_2D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 # 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
 # Convert palette into colormap
-clcmap = ListedColormap(sc.pl.palettes.vega_20)
+clcmap = ListedColormap(sc.pl.palettes.zeileis_28)
 # Get the DF of tissue and clusters
 clusterBatchDF = adata.obs[['batch','{0}'.format(cluster_key)]].copy()
 # Replace batch number with batch names
@@ -622,8 +627,8 @@ plt.savefig("{0}/05_norm_{1}_{2}_32_marker_genes_{3}_tracksplot.png".format(plot
 
 # 8.3) Dataframe of ranked genes
 # Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
-cluster_key        = "louvain_r0.5"
-cluster_bname      = "louvain_r0_5"
+cluster_key        = "louvain_r1.5"
+cluster_bname      = "louvain_r1_5"
 cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
 cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
 rankGenesDir       = "{0}/rankedGenes/{1}".format(dataDir,cluster_bname); create_dir(rankGenesDir)
@@ -641,3 +646,90 @@ adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); ada
 # adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
 # adata = markeradata.copy()
 # Finished on 2020-10-05 01:58:23
+
+###############################################
+# 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Get the DF of tissue and clusters
+clusterTumorDF = adata.obs[['batch','{0}'.format(cluster_key),'AllTumor_hgMycIresCd2']].copy()
+# Remove index for groupby
+clusterTumorDF.reset_index(drop=True, inplace=True)
+# Get the number of cells for each cluster in every tissue
+# ncellsClusterTumorDF = clusterTumorDF.groupby(['{0}'.format(cluster_key),'AllTumor_hgMycIresCd2']).size()
+# # Get the percent of cells for each cluster in every tissue 
+# pcellsClusterTumorDF = ncellsClusterTumorDF.groupby(level=0).apply(lambda x: 100 * x / float(x.sum()))
+
+# Get the percent of cells for each cluster in every tissue 
+ncellsClusterTumorDF = clusterTumorDF.groupby(['{0}'.format(cluster_key),'AllTumor_hgMycIresCd2']).size().to_frame()
+ncellsClusterTumorDF.rename(columns = {0:'cellCount'}, inplace=True)
+ncellsClusterTumorDF['tumorPC'] = 100 * ncellsClusterTumorDF['cellCount'] / ncellsClusterTumorDF.groupby(cluster_key)['cellCount'].transform('sum')
+# ## -- End pasted text --
+# In [24]: ncellsClusterTumorDF
+# Out[24]:
+#                                     cellCount    tumorPC
+# louvain_r1.5 AllTumor_hgMycIresCd2
+# 0            0                            818  94.457275
+#              1                             48   5.542725
+
+# 1            0                            562  96.896552
+#              1                             18   3.103448
+
+# 2            0                            451  88.431373
+#              1                             59  11.568627
+
+# 3            0                            442  96.086957
+#              1                             18   3.913043
+
+# 4            0                            436  96.674058
+#              1                             15   3.325942
+
+# 5            0                            128  42.384106
+#              1                            174  57.615894
+
+# 6            0                            251  89.323843
+#              1                             30  10.676157
+
+# 7            0                            257  97.718631
+#              1                              6   2.281369
+
+# 8            0                            184  78.969957
+#              1                             49  21.030043
+
+# 9            0                             79  35.111111
+#              1                            146  64.888889
+
+# 10           0                            208  94.117647
+#              1                             13   5.882353
+
+# 11           0                            152  71.698113
+#              1                             60  28.301887
+
+# 12           0                            204  96.682464
+#              1                              7   3.317536
+
+# 13           0                            190  91.346154
+#              1                             18   8.653846
+
+# 14           0                            136  83.950617
+#              1                             26  16.049383
+
+# 15           0                            138  94.520548
+#              1                              8   5.479452
+
+# 16           0                            115  88.461538
+#              1                             15  11.538462
+
+# 17           0                             10  10.101010
+#              1                             89  89.898990
+
+# 18           0                              2   2.061856
+#              1                             95  97.938144
+
+# 19           0                              8   8.421053
+#              1                             87  91.578947
+
+# 20           0                             43  61.428571
+#              1                             27  38.571429
+
+# 21           0                             61  93.846154
+#              1                              4   6.153846
+
