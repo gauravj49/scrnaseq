@@ -1,7 +1,7 @@
 def myfunc():
     print('hello')
 
-def  perform_qc(adata, plotsDir, bname):
+def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
   """
   Perform QC analysis and generate QC plots
   """
@@ -70,7 +70,10 @@ def  perform_qc(adata, plotsDir, bname):
   qc_plots(qcadata, plotsDir, "{0}_filtered".format(bname))
   
   print("- Plot filtered QC data UMAPs")
-  plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), 25)
+  plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), num_neighbors)
+
+  print("- Plot filtered QC data TSNEs")
+  plot_raw_tsne(qcadata, plotsDir, "{0}_filtered".format(bname), perplexity)
 
   return qcadata
 
@@ -129,6 +132,19 @@ def plot_raw_umap(qcadata, plotsDir, bname, num_neighbors=15):
   ax = fig.add_subplot(4, 2, 8, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="rb_frac UMAP")
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def plot_raw_tsne(qcadata, plotsDir, bname, perplexity=30):
+  # Calculations for the visualizations
+  sc.tl.tsne(qcadata , random_state = 2105, n_pcs=50, perplexity=perplexity)
+
+  # SampleID 2D TSNE projection
+  fig = plt.figure(figsize=(10,32))
+  ax = fig.add_subplot(4, 1, 1);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 1, 2);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 1, 3);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+  ax = fig.add_subplot(4, 1, 4);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
+  plt.tight_layout()
+  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
   """[summary]
