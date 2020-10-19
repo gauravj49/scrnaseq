@@ -288,56 +288,71 @@ adatafile  = "{0}/03_norm_TrVAE_batchCorrection_{1}_adata.h5ad" .format(dataDir,
 # 5) Automated annotation using SingleR
 ########################
 
+# 5.1) Perform automated annotation using SingleR
 adataMatFile  = "{0}/04_{1}_scran_trvae_adata.matrix" .format(dataDir, projName);
 adata.to_df().T.to_csv(adataMatFile, index=True, header=True, sep="\t")
 os.system("Rscript scripts/R_annotate_cells_using_singleR.R -if={0} -of={0}".format(adataMatFile))
 ImmGenAnnFile   = "{0}/04_{1}_scran_trvae_adata_SingleR_ImmGenRef.txt"     .format(dataDir, projName);
 MouseRnaAnnFile = "{0}/04_{1}_scran_trvae_adata_SingleR_MouseRNAseqRef.txt".format(dataDir, projName);
 
-# 6.1) Read in the SingleR annotated cell data
+# 5.2) Read in the SingleR annotated cell data
 ImmGenAnnDF = pd.read_csv(ImmGenAnnFile, sep='\t', usecols=['cellIDs', 'labels'], index_col=['cellIDs'], quoting=3);
 adata.obs['ImmGenLabels'] = ImmGenAnnDF['labels'].astype('category').values
 MouseRnaseqAnnDF = pd.read_csv(MouseRnaAnnFile, sep='\t', usecols=['cellIDs', 'labels'], index_col=['cellIDs'], quoting=3);
 adata.obs['MouseRnaseqLabels'] = MouseRnaseqAnnDF['labels'].astype('category').values
 
-# 6.2) UMAPs
-fig = plt.figure(figsize=(40,16)); c = 3
+# 5.3) Plot UMAPs
+fig = plt.figure(figsize=(52,16)); c = 4
 # 2D projection
 ax = fig.add_subplot(2, c, 1);                  sc.pl.umap(adata, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="SampleID")
-ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(adata, ax=ax, color="ImmGenLabels"     , legend_loc='right margin', palette=p, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
-ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata, ax=ax, color="MouseRnaseqLabels", legend_loc='right margin', palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
+ax = fig.add_subplot(2, c, 2);                  sc.pl.umap(adata, ax=ax, color="condition"         , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Conditions")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.umap(adata, ax=ax, color="ImmGenLabels"     , legend_loc='right margin', palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 4);                  sc.pl.umap(adata, ax=ax, color="MouseRnaseqLabels", legend_loc='right margin', palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
 # 3D projection
-ax = fig.add_subplot(2, c, 4, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="SampleID")
-ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="ImmGenLabels"     , palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="ImmGenLabels UMAP")
-ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="MouseRnaseqLabels", palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MouseRnaseqLabels UMAP")
+ax = fig.add_subplot(2, c, 5, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="SampleID")
+ax = fig.add_subplot(2, c, 6, projection='3d'); sc.pl.umap(adata, legend_loc=None, ax=ax, color="condition"         , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Conditions")
+ax = fig.add_subplot(2, c, 7, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="ImmGenLabels"     , palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 8, projection='3d'); sc.pl.umap(adata                 , ax=ax, color="MouseRnaseqLabels", palette=sc.pl.palettes.godsnot_102, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="MouseRnaseqLabels UMAP")
 # Save plot
 plt.tight_layout()
-plt.savefig("{0}/04_{1}_sampleID_ImmGenLabels_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+plt.savefig("{0}/04_{1}_sampleID_condition_ImmGenLabels_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-# 6.3) Plot individual samples
+# 5.4) Plot individual samples
+plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key='ImmGenLabels', cluster_bname='ImmGenLabels', analysis_stage_num='04', analysis_stage='singleR_UMAP', color_palette="zeileis_28")
 plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key='MouseRnaseqLabels', cluster_bname='MouseRnaseqLabels', analysis_stage_num='04', analysis_stage='singleR_UMAP', color_palette="godsnot_102")
-# Save test marker gene plot
-sc.pl.umap(adata, color=['MouseRnaseqLabels', 'Foxp1', 'Cd3d'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+
+# 5.5) Plot TSNEs
+fig = plt.figure(figsize=(52,16)); c = 4
+# 2D projection
+ax = fig.add_subplot(2, c, 1);                  sc.pl.tsne(adata, ax=ax, color="sampleID"         , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="SampleID")
+ax = fig.add_subplot(2, c, 2);                  sc.pl.tsne(adata, ax=ax, color="condition"         , palette=sc.pl.palettes.vega_20, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Conditions")
+ax = fig.add_subplot(2, c, 3);                  sc.pl.tsne(adata, ax=ax, color="ImmGenLabels"     , legend_loc='right margin', palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="ImmGenLabels UMAP")
+ax = fig.add_subplot(2, c, 4);                  sc.pl.tsne(adata, ax=ax, color="MouseRnaseqLabels", legend_loc='right margin', palette=sc.pl.palettes.godsnot_102, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="MouseRnaseqLabels UMAP")
+# Save plot
 plt.tight_layout()
-plt.savefig("{0}/04_{1}_MarkerGene_testList_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+plt.savefig("{0}/04_{1}_sampleID_condition_ImmGenLabels_MouseRnaseqLabels_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# # Save test marker gene plot
+# sc.pl.umap(adata, color=['MouseRnaseqLabels', 'Foxp1', 'Cd3d'], use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+# plt.tight_layout()
+# plt.savefig("{0}/04_{1}_MarkerGene_testList_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
 # 6.4) Save the singleR annotated adata into a file
 # Write the adata object to file
 adatafile  = "{0}/04_{1}_singleR_annotated_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
 # # Read back the corrected adata object
-# adatafile  = "{0}/03_norm_all_batchCorrection_adata.h5ad" .format(dataDir, projName); normadata  = sc.read_h5ad(adatafile)
-# normadata = adata.copy()
+# adatafile  = "{0}/04_{1}_singleR_annotated_adata.h5ad" .format(dataDir, projName); singleradata  = sc.read_h5ad(adatafile)
+# adata = singleradata.copy()
 
 
 #######################
-# 7) Clustering
+# 6) Clustering
 ########################
-# 7.1) Perform clustering - using highly variable genes
+# 6.1) Perform clustering - using highly variable genes
 sc.tl.louvain(adata                , key_added='louvain'     , random_state=2105)
 sc.tl.louvain(adata, resolution=1  , key_added='louvain_r1'  , random_state=2105)
 sc.tl.louvain(adata, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
 sc.tl.louvain(adata, resolution=2.0, key_added='louvain_r2'  , random_state=2105)
-
 for i in np.linspace(0.1,0.9,9):
     try:
         sc.tl.louvain(adata, resolution=i, key_added='louvain_r{0}'.format(i), random_state=2105)
@@ -347,40 +362,41 @@ for i in np.linspace(0.1,0.9,9):
 sc.tl.louvain(adata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
 sc.tl.louvain(adata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
 
-# 7.2) Visualize the clustering and how this is reflected by different technical covariates
-# UMAP
+# 6.2) Visualize the clustering and how this is reflected by different technical covariates
+# 6.2.1) Plot UMAPs
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 sc.pl.umap(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# TSNE
+# 6.2.2) Plot TSNEs
 sc.pl.tsne(adata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
 plt.savefig("{0}/05_{1}_clustering_all_louvain_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 louvainadata = adata.copy()
 
+# 6.2.3) Plot sampleID, conditions, counts and MT-fractions
 cluster_key   = "louvain_r1"
 cluster_bname = "louvain_r1"
-fig = plt.figure(figsize=(40,8))
+fig = plt.figure(figsize=(48,12))
 # 2D projection
 ax = fig.add_subplot(2, 6, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="sampleID"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
 ax = fig.add_subplot(2, 6, 2);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="sampleID"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 6, 2);                  sc.pl.umap(adata   ,                  ax=ax, color="condition"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 6, 3);                  sc.pl.umap(adata   , legend_loc='on data', ax=ax, color=cluster_key   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-ax = fig.add_subplot(2, 6, 4);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 6, 5);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 6, 3);                  sc.pl.umap(adata   ,                  ax=ax, color="condition"  , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 6, 4);                  sc.pl.umap(adata   , legend_loc='on data', ax=ax, color=cluster_key   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 6, 5);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 6, 6);                  sc.pl.umap(adata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
 # 3D projection
-ax = fig.add_subplot(2, 6, 6, projection='3d'); sc.pl.umap(rawadata, legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
-ax = fig.add_subplot(2, 6, 7, projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 6, 7, projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="condition", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
-ax = fig.add_subplot(2, 6, 8, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-ax = fig.add_subplot(2, 6, 9, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
-ax = fig.add_subplot(2, 6, 10, projection='3d'); sc.pl.umap(adata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+ax = fig.add_subplot(2, 6, 7 , projection='3d'); sc.pl.umap(rawadata, legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
+ax = fig.add_subplot(2, 6, 8 , projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 6, 9 , projection='3d'); sc.pl.umap(adata   , legend_loc=None,  ax=ax, color="condition", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 6, 10, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 6, 11, projection='3d'); sc.pl.umap(adata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 6, 12, projection='3d'); sc.pl.umap(adata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
 plt.tight_layout()
 plt.savefig("{0}/05_normTrVAE_{1}_{2}_sampleID_counts_mtfrac_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-# Louvain UMAPs
+# 6.2.4) Louvain UMAPs
 fig = plt.figure(figsize=(16,6))
 fig.suptitle("{0} UMAP".format(cluster_key))
 # 2D projection
@@ -391,10 +407,10 @@ ax = fig.add_subplot(1, 2, 2, projection='3d');
 sc.pl.umap(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
 plt.savefig("{0}/05_normTrVAE_{1}_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# 5.3) Plot individual samples
+# 6.2.4) Plot individual samples
 plot_individual_cluster_umap(adata, plotsDir, bname, cluster_key=cluster_key, cluster_bname=cluster_bname, analysis_stage_num='05', analysis_stage='clustering')
 
-# Louvain TSNEs
+# 6.2.5) Louvain TSNEs
 fig = plt.figure(figsize=(16,6))
 fig.suptitle("{0} TSNE".format(cluster_key))
 # 2D projection
@@ -404,7 +420,9 @@ ax = fig.add_subplot(1, 2, 2);
 sc.pl.tsne(adata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
 plt.savefig("{0}/05_normTrVAE_{1}_clustering_{2}_TSNE_2D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-# 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# 6.3) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+
+# 6.3.1) Number of cells for each cluster in each tissue
 # Convert palette into colormap
 clcmap = ListedColormap(sc.pl.palettes.zeileis_28)
 # Get the DF of tissue and clusters
@@ -429,6 +447,7 @@ ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 # Put a legend to the right of the current axis
 ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
 
+# 6.3.2) Number of cells for each tissue in each cluster
 # Get the number of cells for each tissue in every cluster
 nbatchPerClusterIdDF = clusterBatchDF.groupby(['{0}'.format(cluster_key),'batch']).size()
 # Get the percent of cells for each tissue in every cluster 
@@ -447,3 +466,102 @@ ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Sample ID', title_f
 plt.tight_layout() # For non-overlaping subplots
 plt.savefig("{0}/05_normTrVAE_{1}_clustering_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
+# 6.4) Save the singleR annotated adata into a file
+# Write the adata object to file
+adatafile  = "{0}/05_{1}_louvain_cluster_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/05_{1}_louvain_cluster_adata.h5ad" .format(dataDir, projName); singleradata  = sc.read_h5ad(adatafile)
+# adata = singleradata.copy()
+
+########################
+# 8) Marker genes identification & cluster annotation
+########################
+cluster_key   = "louvain_r1"
+cluster_bname = "louvain_r1"
+
+# 8.1.1) Calculate marker genes
+# Calculate marker genes
+sc.tl.rank_genes_groups(adata, groupby=cluster_key, key_added='rank_genes_{0}'.format(cluster_key), n_genes=adata.shape[1])
+
+# 8.1.2) Plot marker genes
+sc.pl.rank_genes_groups(adata, key='rank_genes_{0}'.format(cluster_key), fontsize=12, show=False)
+plt.savefig("{0}/06_normTrVAE_{1}_{2}_marker_genes_ranking.png".format(plotsDir, bname, cluster_key) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 8.2.1) Annotation of cluster r_0.5 with known marker genes
+markerDir = "{0}/markerDir".format(plotsDir); create_dir(markerDir)
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+
+# # 8.2.2) Get all the gene names in the adata object
+genespresent = adata.var.index.values.tolist()
+
+# # 8.2.3) For mouse cell atlas marker genes
+ma_marker_file       = '/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/docs/adultBrain_mouse_cellatlas_V1.txt'
+ma_markersDF         = pd.read_csv(ma_marker_file, sep="\t", header=0, index_col=None)
+ma_marker_genes      = ma_markersDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+# Generate the UMAPs/TSNE for each marker categories
+plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, ma_marker_genes, "Adult_Brain_marker_list_mouse_cellatlas_V1")
+
+# # 8.3) Save the louvain information in external file
+louvainsDF = pd.DataFrame(adata.obs[cluster_key])
+louvainsDF.to_csv("{0}/03_{1}_louvains.txt".format(dataDir, projName), sep='\t', header=True, index=True, index_label="cellId")
+
+# 8.4) Other marker gene visualization
+# 8.4.1) Get clean marker dict
+adata_expressed_genes = adata.var.index.tolist()
+ma_marker_genes_filtered_dict = defaultdict()
+for k,v in ma_marker_genes.items():
+  new_genes_list = [x for x in v if x in adata_expressed_genes]
+  if new_genes_list:
+    ma_marker_genes_filtered_dict[k] = new_genes_list
+
+marker_list_name = "stomach_V2"
+# 8.2.2) Dot plots: The dotplot visualization provides a compact way of showing per group, the fraction of cells expressing a gene (dot size) and the mean expression of the gene in those cell (color scale).
+# The use of the dotplot is only meaningful when the counts matrix contains zeros representing no gene counts. dotplot visualization does not work for scaled or corrected matrices in which cero counts had been replaced by other values.
+sc.pl.dotplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/05_norm_{1}_{2}_31_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.3) Matrix plots: The matrixplot shows the mean expression of a gene in a group by category as a heatmap. In contrast to dotplot, the matrix plot can be used with corrected and/or scaled counts. By default raw counts are used.
+sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/05_norm_{1}_{2}_31_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/05_norm_{1}_{2}_31_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.4) Tracksplots: The track plot shows the same information as the heatmap, but, instead of a color scale, the gene expression is represented by height.
+ad = adata.copy()
+# ad.raw.X.data = np.exp(ad.raw.X.data)
+ax = sc.pl.tracksplot(ad, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/05_norm_{1}_{2}_31_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+marker_list_name = "mouse_cellatlas"
+# 8.2.5) Dot plots
+sc.pl.dotplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/05_norm_{1}_{2}_32_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.6) Matrix plots
+sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/05_norm_{1}_{2}_32_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(adata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/05_norm_{1}_{2}_32_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.7) Tracksplots
+ax = sc.pl.tracksplot(ad, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/05_norm_{1}_{2}_32_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 8.3) Dataframe of ranked genes
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key        = "louvain_r1.5"
+cluster_bname      = "louvain_r1_5"
+cluster_key_groups = adata.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = adata.obs[cluster_key].value_counts().to_dict()
+rankGenesDir       = "{0}/rankedGenes/{1}".format(dataDir,cluster_bname); create_dir(rankGenesDir)
+for g in cluster_key_groups:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(adata.uns['rank_genes_{0}'.format(cluster_key)][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/03_{1}_rank_genes_{2}_{3}.txt".format(rankGenesDir, projName, cluster_bname, g), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 8.4) Save the cellType assigned adata into a file
+# Write the adata and cadata object to file
+adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
+# # Read back the corrected adata object
+# adatafile  = "{0}/04_markerGenes_{1}_adata.h5ad" .format(dataDir, projName); markeradata  = sc.read_h5ad(adatafile)
+# adata = markeradata.copy()
+# Finished on 2020-10-05 01:58:23
