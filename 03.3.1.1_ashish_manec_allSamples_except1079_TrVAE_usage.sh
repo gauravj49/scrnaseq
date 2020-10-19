@@ -733,3 +733,218 @@ ncellsClusterTumorDF['tumorPC'] = 100 * ncellsClusterTumorDF['cellCount'] / ncel
 # 21           0                             61  93.846154
 #              1                              4   6.153846
 
+# sc.pl.umap(adata, color=[cluster_key, 'Myc','Cd2','humanCd2'], use_raw=False, color_map=mymap, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, ncols=2, legend_loc='on data')
+
+################################################################################################################
+# 9) Only Tumor cells analysis
+# Get the tumor adata
+tumoradata = adata[adata.obs['AllTumor_hgMycIresCd2'] == 1].copy()
+
+# Calculations for UMAP and TSNE
+# UMAP
+sc.pp.pca(tumoradata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
+sc.pp.neighbors(tumoradata, random_state = 2105)
+# sc.pp.neighbors(tumoradata, random_state = 2105, n_neighbors=10)
+sc.tl.umap(tumoradata, random_state = 2105, n_components=3)
+
+# TSNE
+sc.tl.tsne(tumoradata   , random_state = 2105, n_pcs=50)
+
+
+# 7.1) Perform clustering - using highly variable genes
+sc.tl.louvain(tumoradata                , key_added='louvain'     , random_state=2105)
+sc.tl.louvain(tumoradata, resolution=1  , key_added='louvain_r1'  , random_state=2105)
+sc.tl.louvain(tumoradata, resolution=1.5, key_added='louvain_r1.5', random_state=2105)
+sc.tl.louvain(tumoradata, resolution=2.0, key_added='louvain_r2'  , random_state=2105)
+
+for i in np.linspace(0.1,0.9,9):
+    try:
+        sc.tl.louvain(tumoradata, resolution=i, key_added='louvain_r{0}'.format(i), random_state=2105)
+        print(tumoradata.obs['louvain_r{0:0.1f}'.format(i)].value_counts())
+    except:
+        print("- Error in r: {0}".format(i))
+sc.tl.louvain(tumoradata, resolution=0.3, key_added='louvain_r0.3', random_state=2105)
+sc.tl.louvain(tumoradata, resolution=0.7, key_added='louvain_r0.7', random_state=2105)
+
+# 7.2) Visualize the clustering and how this is reflected by different technical covariates
+# UMAP
+sc.pl.umap(tumoradata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/07_{1}_tomor_clustering_all_louvain_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.umap(tumoradata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, projection='3d', show=False)
+plt.savefig("{0}/07_{1}_tumor_clustering_all_louvain_UMAP_3D.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# TSNE
+sc.pl.tsne(tumoradata, color=['louvain', 'louvain_r0.1', 'louvain_r0.2', 'louvain_r0.3', 'louvain_r0.4', 'louvain_r0.5', 'louvain_r0.6', 'louvain_r0.7', 'louvain_r0.8', 'louvain_r0.9', 'louvain_r1', 'louvain_r1.5', 'louvain_r2'], palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.savefig("{0}/07_{1}_tumor_clustering_all_louvain_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+
+cluster_key   = "louvain_r0.5"
+cluster_bname = "louvain_r0_5"
+fig = plt.figure(figsize=(38,12))
+# 2D projection
+ax = fig.add_subplot(2, 5, 1);                  sc.pl.umap(rawadata,                  ax=ax, color="sampleID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="Raw tissueID UMAP")
+ax = fig.add_subplot(2, 5, 2);                  sc.pl.umap(tumoradata   , legend_loc=None, ax=ax, color="sampleID"  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 5, 3);                  sc.pl.umap(tumoradata   , legend_loc='on data', ax=ax, color=cluster_key   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 5, 4);                  sc.pl.umap(tumoradata   , legend_loc=None, ax=ax, color="log_counts", palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 5, 5);                  sc.pl.umap(tumoradata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+# 3D projection
+ax = fig.add_subplot(2, 5, 6, projection='3d'); sc.pl.umap(tumoradata,    legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="Raw tissueID UMAP")
+ax = fig.add_subplot(2, 5, 7, projection='3d'); sc.pl.umap(tumoradata   , legend_loc=None,  ax=ax, color="sampleID", palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="TrVAE tissueID UMAP")
+ax = fig.add_subplot(2, 5, 8, projection='3d'); sc.pl.umap(tumoradata   ,                   ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+ax = fig.add_subplot(2, 5, 9, projection='3d'); sc.pl.umap(tumoradata   , legend_loc=None, ax=ax, color="log_counts"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="log_counts UMAP")
+ax = fig.add_subplot(2, 5, 10, projection='3d'); sc.pl.umap(tumoradata  , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.zeileis_28, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
+plt.tight_layout()
+plt.savefig("{0}/07_{1}_tumor_{2}_sampleID_counts_mtfrac_UMAP.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+# Louvain UMAPs
+fig = plt.figure(figsize=(16,6))
+fig.suptitle("{0} UMAP".format(cluster_key))
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.umap(tumoradata, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+# 3D projection
+ax = fig.add_subplot(1, 2, 2, projection='3d'); 
+sc.pl.umap(tumoradata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+plt.savefig("{0}/07_{1}_tumor_clustering_{2}_UMAP_2D3D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 5.3) Plot individual samples
+plot_individual_cluster_umap(tumoradata, plotsDir, bname, cluster_key=cluster_key, cluster_bname=cluster_bname, analysis_stage_num='07', analysis_stage='tumor_clustering')
+
+# Louvain TSNEs
+fig = plt.figure(figsize=(16,6))
+fig.suptitle("{0} TSNE".format(cluster_key))
+# 2D projection
+ax = fig.add_subplot(1, 2, 1);                  
+sc.pl.tsne(tumoradata, legend_loc='on data', ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+ax = fig.add_subplot(1, 2, 2);                  
+sc.pl.tsne(tumoradata, ax=ax, color=cluster_key, palette=sc.pl.palettes.zeileis_28, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+plt.savefig("{0}/07_{1}_tumor_clustering_{2}_TSNE_2D.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 7.2) Plot separate bar plots, coloured in by cluster annotation, for each tissue
+# Convert palette into colormap
+clcmap = ListedColormap(sc.pl.palettes.zeileis_28)
+# Get the DF of tissue and clusters
+clusterBatchDF = tumoradata.obs[['batch','{0}'.format(cluster_key)]].copy()
+# Replace batch number with batch names
+clusterBatchDF.replace({'batch': sampleIdDict}, inplace=True)
+# Remove index for groupby
+clusterBatchDF.reset_index(drop=True, inplace=True)
+# Get the number of cells for each cluster in every tissue
+ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','{0}'.format(cluster_key)]).size()
+# Get the percent of cells for each cluster in every tissue 
+pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['{0}'.format(cluster_key)], values=clusterBatchDF['{0}'.format(cluster_key)], aggfunc='count', normalize='index')
+# Plot the barplots
+fig = plt.figure(figsize=(32,24)); fig.suptitle("Cells for each {0} in each tissue".format(cluster_key))
+# plot numbers of cells
+ax = fig.add_subplot(2, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+# plot percent of cells
+ax = fig.add_subplot(2, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+
+# Get the number of cells for each tissue in every cluster
+nbatchPerClusterIdDF = clusterBatchDF.groupby(['{0}'.format(cluster_key),'batch']).size()
+# Get the percent of cells for each tissue in every cluster 
+pbatchPerClusterIdDF = pd.crosstab(index=clusterBatchDF['{0}'.format(cluster_key)], columns=clusterBatchDF['batch'], values=clusterBatchDF['batch'], aggfunc='count', normalize='index')
+# Plot the barplots
+ax = fig.add_subplot(2, 2, 3); nbatchPerClusterIdDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="number of cells for each tissue in every cluster")
+# plot percent of cells
+ax = fig.add_subplot(2, 2, 4); pbatchPerClusterIdDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells for each tissue in every cluster")
+# Shrink current axis by 20%
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# Put a legend to the right of the current axis
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+
+# Save plots in a 2x2 grid style
+plt.tight_layout() # For non-overlaping subplots
+plt.savefig("{0}/07_{1}_tumor_clustering_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 8.1.1) Calculate marker genes
+# Calculate marker genes
+sc.tl.rank_genes_groups(tumoradata, groupby=cluster_key, key_added='rank_genes_{0}'.format(cluster_key), n_genes=adata.shape[1])
+
+# 8.1.2) Plot marker genes
+sc.pl.rank_genes_groups(tumoradata, key='rank_genes_{0}'.format(cluster_key), fontsize=12, show=False)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_ranking.png".format(plotsDir, bname, cluster_key) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# # 8.2.2) Get all the gene names in the adata object
+tumorgenespresent = tumoradata.var.index.values.tolist()
+
+# Generate the UMAPs/TSNE for each marker categories
+tumormarkerDir = "{0}/markerDir/tumor".format(plotsDir); create_dir(tumormarkerDir)
+subplot_title_fontsize = 12
+subplot_title_width    = 50
+plot_manual_marker_list_genes(tumoradata, tumormarkerDir, bname, cluster_key, tumorgenespresent, marker_genes_cellTypes, "stomach_marker_list_V2")
+plot_manual_marker_list_genes(tumoradata, tumormarkerDir, bname, cluster_key, tumorgenespresent, ma_marker_genes, "stomach_marker_list_mouse_cellatlas_V1")
+
+# 8.2.1) Get clean marker dict
+adata_expressed_genes = tumoradata.var.index.tolist()
+marker_genes_filtered_dict = defaultdict()
+for k,v in marker_genes_cellTypes.items():
+  new_genes_list = [x for x in v if x in adata_expressed_genes]
+  if new_genes_list:
+    marker_genes_filtered_dict[k] = new_genes_list
+
+ma_marker_genes_filtered_dict = defaultdict()
+for k,v in ma_marker_genes.items():
+  new_genes_list = [x for x in v if x in adata_expressed_genes]
+  if new_genes_list:
+    ma_marker_genes_filtered_dict[k] = new_genes_list
+
+# Get the dendrogram reflect the same cluster_key
+sc.tl.dendrogram(tumoradata, groupby=cluster_key)
+
+marker_list_name = "stomach_V2"
+# 8.2.2) Dot plots: The dotplot visualization provides a compact way of showing per group, the fraction of cells expressing a gene (dot size) and the mean expression of the gene in those cell (color scale).
+# The use of the dotplot is only meaningful when the counts matrix contains zeros representing no gene counts. dotplot visualization does not work for scaled or corrected matrices in which cero counts had been replaced by other values.
+sc.pl.dotplot(tumoradata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/007_{1}_{2}_tumor_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.3) Matrix plots: The matrixplot shows the mean expression of a gene in a group by category as a heatmap. In contrast to dotplot, the matrix plot can be used with corrected and/or scaled counts. By default raw counts are used.
+sc.pl.matrixplot(tumoradata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(tumoradata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.4) Tracksplots: The track plot shows the same information as the heatmap, but, instead of a color scale, the gene expression is represented by height.
+ad = tumoradata.copy()
+# ad.raw.X.data = np.exp(ad.raw.X.data)
+ax = sc.pl.tracksplot(ad, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+marker_list_name = "mouse_cellatlas"
+# 8.2.5) Dot plots
+sc.pl.dotplot(tumoradata, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_dotplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.6) Matrix plots
+sc.pl.matrixplot(tumoradata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_scaled_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+sc.pl.matrixplot(tumoradata, ma_marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_scaled_vmin0_05_matrixplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+# 8.2.7) Tracksplots
+ax = sc.pl.tracksplot(ad, ma_marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+plt.savefig("{0}/07_{1}_{2}_tumor_marker_genes_{3}_tracksplot.png".format(plotsDir, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 8.3) Dataframe of ranked genes
+# Get number of groups for the cluster_key (cluster_key_groups,number_of_cells)
+cluster_key        = "louvain_r1.5"
+cluster_bname      = "louvain_r1_5"
+cluster_key_groups = tumoradata.obs[cluster_key].cat.categories.tolist()
+cluster_cell_count = tumoradata.obs[cluster_key].value_counts().to_dict()
+rankGenesDir       = "{0}/rankedGenes/{1}/tumor".format(dataDir,cluster_bname); create_dir(rankGenesDir)
+for g in cluster_key_groups:
+  ngDF = pd.DataFrame()
+  for n in ['names', 'scores', 'logfoldchanges',  'pvals', 'pvals_adj']:
+    ngDF[n] = pd.DataFrame(tumoradata.uns['rank_genes_{0}'.format(cluster_key)][n])[g]
+  # Save dataframes
+  ngDF.to_csv("{0}/04_{1}_tumor_rank_genes_{2}_{3}.txt".format(rankGenesDir, projName, cluster_bname, g), sep='\t', header=True, index=False, float_format='%.2g')
+
+# 8.4) Save the cellType assigned tumoradata into a file
+# Write the tumoradata and ctumoradata object to file
+tumoradatafile  = "{0}/05_tumor_markerGenes_{1}_tumoradata.h5ad" .format(dataDir, projName); tumoradata.write(tumoradatafile)
+# # Read back the corrected tumoradata object
+# tumoradatafile  = "{0}/04_markerGenes_{1}_tumoradata.h5ad" .format(dataDir, projName); markertumoradata  = sc.read_h5ad(tumoradatafile)
+# tumoradata = markertumoradata.copy()
+# Finished on 2020-10-05 01:58:23
