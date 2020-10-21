@@ -932,6 +932,6 @@ for g in cluster_key_groups:
 # Write the tumoradata and ctumoradata object to file
 tumoradatafile  = "{0}/05_tumor_markerGenes_{1}_tumoradata.h5ad" .format(dataDir, projName); tumoradata.write(tumoradatafile)
 # # Read back the corrected tumoradata object
-# tumoradatafile  = "{0}/04_markerGenes_{1}_tumoradata.h5ad" .format(dataDir, projName); markertumoradata  = sc.read_h5ad(tumoradatafile)
+# tumoradatafile  = "{0}/05_tumor_markerGenes_{1}_tumoradata.h5ad".format(dataDir, projName); markertumoradata  = sc.read_h5ad(tumoradatafile)
 # tumoradata = markertumoradata.copy()
 # Finished on 2020-10-05 01:58:23
