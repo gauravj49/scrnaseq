@@ -4,7 +4,11 @@ def myfunc():
 def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
   """
   Perform QC analysis and generate QC plots
+
+  Returns:
+      [annData]: A quality controlled filtered annotated data matrix with raw counts
   """
+
   # Make a copy of qcadata
   qcadata = adata.copy()
   
@@ -29,41 +33,59 @@ def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
   print("- Plot unfiltered QC data")
   qc_plots(qcadata, plotsDir, "{0}_unfiltered".format(bname))
 
-  # Write the information in the log file
-  f = open("{0}/data/01_QC_info_cells_genes.txt".format(get_file_info(plotsDir)[0]), "w")
+  # Write the information in the log file and save it in a dictionary
+  f      = open("{0}/data/01_QC_info_cells_genes.txt".format(get_file_info(plotsDir)[0]), "w")
+  qcdict = OrderedDict()
+
   # 1.2.3) Filter cells according to identified QC thresholds:
   f.write("- Unfiltered rawqcadata shape: {0}".format(qcadata.shape))
+  qcdict['Unfiltered raw qc adata'] = "{0} cells and {1} genes".format(qcadata.shape[0], qcadata.shape[1])
   print('Total number of cells: {:d}'.format(qcadata.n_obs))
   f.write('\n\n- Total number of cells: {:d}'.format(qcadata.n_obs))
+  qcdict['Total number of cells'] = '{:d}'.format(qcadata.n_obs)
   sc.pp.filter_cells(qcadata, min_counts = minCountPerCell)
   print('Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
   f.write('\n\t- Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
+  qcdict['Number of cells after min count filter'] = '{:d}'.format(qcadata.n_obs)
 
   sc.pp.filter_cells(qcadata, max_counts = maxCountPerCell)
   print('Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
   f.write('\n\t- Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
+  qcdict['Number of cells after max count filter'] = '{:d}'.format(qcadata.n_obs)
 
   qcadata = qcadata[qcadata.obs['mt_frac'] < mtGenesFilter]
   print('Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
   f.write('\n\t- Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
+  qcdict['Number of cells after MT filter'] = '{:d}'.format(qcadata.n_obs)
+
   qcadata = qcadata[qcadata.obs['rb_frac'] < rbGenesFilter]
   print('Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
   f.write('\n\t- Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
+  qcdict['Number of cells after Ribo filter'] = '{:d}'.format(qcadata.n_obs)
 
   sc.pp.filter_cells(qcadata, min_genes = minGenesPerCell)
   print('Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
   f.write('\n\t- Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
+  qcdict['Number of cells after gene filter'] = '{:d}'.format(qcadata.n_obs)
 
   # 1.2.4) Filter genes according to identified QC thresholds:
   print('Total number of genes: {:d}'.format(qcadata.n_vars))
   f.write('\n\n- Total number of genes: {:d}'.format(qcadata.n_vars))
+  qcdict['Total number of genes'] = '{:d}'.format(qcadata.n_vars)
   sc.pp.filter_genes(qcadata, min_cells=minCellsPergene)
   print('Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
   f.write('\n\t- Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
+  qcdict['Number of genes after minCellsPergene filter'] = '{:d}'.format(qcadata.n_vars)
 
   print("- Filtered rawqcadata shape: {0}".format(qcadata.shape))
   f.write("\n\n- Filtered rawqcadata shape: {0}".format(qcadata.shape))
+  qcdict['Filtered raw qc adata'] = "{0} cells and {1} genes".format(qcadata.shape[0], qcadata.shape[1])
   f.close()
+
+  # Convert dictionary to dataframe
+  # qcDF = pd.DataFrame(qcdict, columns=qcdict.keys(), index=[0])
+  qcDF = pd.DataFrame(qcdict, index=[0]).T
+  qcDF.style.export_png("{0}/01_{1}_QC_info_cells_genes.png".format(plotsDir, bname))
 
   # Plot filtered QC data
   print("- Plot filtered QC data")
@@ -79,7 +101,9 @@ def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
 
 def qc_plots(qcadata, plotsDir, bname):
   """
-  Plot QC metrics
+  Plot QC matrices
+
+  Returns: None
   """
   n = 5
   fig = plt.figure(figsize=(15,40))
@@ -103,6 +127,11 @@ def qc_plots(qcadata, plotsDir, bname):
   plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def plot_raw_umap(qcadata, plotsDir, bname, num_neighbors=15):
+  """[summary]
+
+  Returns:
+      [type]: [description]
+  """
   # # For debugging purpose
   # qcadata=rawadata.copy()
   # 1.2.9) Compute variable genes
@@ -180,6 +209,42 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
 
   plt.tight_layout()
   plt.savefig("{0}/{4}_{3}_{1}_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def save_adata_to_excel(qcadata, dataDir, bname, obs_colnames=None, obs_new_colnames=None, append_new_colnames=False):
+  """
+  Name:
+    save_adata_to_excel
+  
+  Description: 
+    Save the annData as a tab separated file with genes and observation columns for each cell
+
+  Parameters:
+    qcadata             (annData): The ann data object that is used at the current stage of the analysis
+    dataDir             (str)    : Path the data directory
+    bname               (str)    : basename that goes into the filename
+    obs_colnames        (list)   : Default column names that will be added with the genes
+                                   Default = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
+ 
+    obs_new_colnames    (list)   : New or additional column names that will be added with the genes
+                                   Example: ['batch', 'sampleID', 'AllTumor_hgMycIresCd2', 'humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2', 'louvain_r1']
+
+    append_new_colnames (bool)   : False
+    
+  Return: 
+    None
+  """
+
+  # Set default column names
+  # Note: It is not advisable to use mutatble default arguments to a function. 
+  #       Hence the default argument is None and then assign the data type into the function. 
+  #       Help: https://nikos7am.com/posts/mutable-default-arguments/
+  if (obs_colnames is None): obs_colnames = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
+  if (obs_new_colnames is None): obs_new_colnames = []
+  
+  # Extend the column names to the default column names
+  if (append_new_colnames):
+    obs_colnames.extend(obs_new_colnames)
+  
 
 ########################
 # Normalization Modules
