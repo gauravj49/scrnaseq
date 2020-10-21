@@ -210,7 +210,7 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
   plt.tight_layout()
   plt.savefig("{0}/{4}_{3}_{1}_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
-def save_adata_to_excel(qcadata, dataDir, bname, obs_colnames=None, obs_new_colnames=None, append_new_colnames=False):
+def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs_new_colnames=None, append_new_colnames=False, subset_genes=None):
   """
   Name:
     save_adata_to_excel
@@ -228,6 +228,8 @@ def save_adata_to_excel(qcadata, dataDir, bname, obs_colnames=None, obs_new_coln
     obs_new_colnames    (list)   : New or additional column names that will be added with the genes
                                    Example: ['batch', 'sampleID', 'AllTumor_hgMycIresCd2', 'humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2', 'louvain_r1']
 
+    subset_genes        (list)    : A small subset of genes that should be saved.
+                                    Example: ['Hbb-bs','Hba-a1','Hba-a2']
     append_new_colnames (bool)   : False
     
   Return: 
@@ -238,14 +240,36 @@ def save_adata_to_excel(qcadata, dataDir, bname, obs_colnames=None, obs_new_coln
   # Note: It is not advisable to use mutatble default arguments to a function. 
   #       Hence the default argument is None and then assign the data type into the function. 
   #       Help: https://nikos7am.com/posts/mutable-default-arguments/
-  if (obs_colnames is None): obs_colnames = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
   if (obs_new_colnames is None): obs_new_colnames = []
-  
+  if (subset_genes is None): subset_genes = []
+  if (obs_colnames is None): obs_colnames = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
+
   # Extend the column names to the default column names
   if (append_new_colnames):
     obs_colnames.extend(obs_new_colnames)
   
+  # Get the dataframes for count data and observations
+  countsDF = qcadata.to_df()
+  obsDF    = qcadata.obs.copy()
 
+  # Subset the observation dataframe if the parameters are set
+  subset_obsDF = obsDF[obs_colnames].copy()
+
+  # Subset the counts dataframe if the parameters are set
+  qcadata_expressed_gene_list = qcadata.var.index.tolist()
+  subset_expressed_gene_list  = [x for x in subset_genes if x in qcadata_expressed_gene_list]
+  subset_countsDF             = countsDF[subset_expressed_gene_list].copy()
+  
+  # Merge the selected observation and count dataframes
+  print("\n- Merge the selected observation and count dataframes")
+  merged_subset_obs_countDF = pd.concat([subset_obsDF, subset_countsDF], axis=1)
+
+  # Get the descriptive statistics for the DF
+  merged_subset_obs_countDF = merged_subset_obs_countDF.describe()[1:].append(merged_subset_obs_countDF)
+  
+  # Save the dataframe
+  merged_subset_obs_countDF.T.to_csv("{0}/{1}.txt".format(dataDir, outputFileName), sep='\t', header=True, index=True, index_label="cellIDs")
+  
 ########################
 # Normalization Modules
 ########################
