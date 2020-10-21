@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D      # for 3D projection
 from matplotlib.colors import ListedColormap # for sc.palette to colormap
 from itertools import combinations           # pairwise combinations
+from functools import partial, reduce
 
 # Third party libraries
 sys.path.append('/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/scripts/scoreCT/src/')
