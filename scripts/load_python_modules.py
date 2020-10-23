@@ -27,6 +27,7 @@ from functools import partial, reduce
 # Third party libraries
 sys.path.append('/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/scripts/scoreCT/src/')
 import scorect_api as ct
+import dataframe_image as dfi
 
 # Reset random state
 np.random.seed(2105)
