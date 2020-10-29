@@ -7,6 +7,7 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # Loading the python libraries environment
 %load scripts/load_python_modules.py
+
 %load scripts/scrnaseq_module.py
 
 # For filtering criteria
@@ -20,12 +21,12 @@ projName        = "allSamples_ohneB1079B1001_trvae"
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
-minGenesPerCell = 5
-minCountPerCell = 50
-maxCountPerCell = 100000 
-minCellsPergene = 25
+minGenesPerCell = 50
+minCountPerCell = 100
+maxCountPerCell = 25000
+minCellsPergene = 5
 mtGenesFilter   = 0.25
-rbGenesFilter   = 0.15
+rbGenesFilter   = 0.25
 bname           = projName
 plotsDir        = "{0}/plots".format(output_dir); create_dir(plotsDir)
 dataDir         = "{0}/data".format(output_dir); create_dir(dataDir)
