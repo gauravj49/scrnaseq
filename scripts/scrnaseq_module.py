@@ -200,52 +200,7 @@ def plot_raw_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', ba
   plt.tight_layout()
   plt.savefig("{0}/{1}_raw_filtered_UMAP_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
-
-def plot_raw_tsne(qcadata, plotsDir, bname, batch_key='sampleID'):
-  # SampleID 2D TSNE projection
-  fig = plt.figure(figsize=(10,32))
-  ax = fig.add_subplot(4, 1, 1);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 1, 2);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 1, 3);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
-  ax = fig.add_subplot(4, 1, 4);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
-  plt.tight_layout()
-  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-def plot_raw_umap(qcadata, plotsDir, bname, batch_key='sampleID', num_neighbors=15):
-  """[summary]
-
-  Returns:
-      [type]: [description]
-  """
-  # 1.2.11) Plot visualizations
-  sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
-  plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-  # UMAPS
-  fig = plt.figure(figsize=(20,32))
-  # 2D projection
-  ax = fig.add_subplot(4, 2, 1);                  sc.pl.umap(qcadata   ,                  ax=ax, color=batch_key  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 2, 3);                  sc.pl.umap(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 2, 5);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
-  ax = fig.add_subplot(4, 2, 7);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
-  # 3D projection
-  ax = fig.add_subplot(4, 2, 2, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color=batch_key  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 2, 4, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 2, 6, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
-  ax = fig.add_subplot(4, 2, 8, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="rb_frac UMAP")
-  plt.tight_layout()
-  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-def plot_raw_tsne(qcadata, plotsDir, bname, batch_key='sampleID', perplexity=30):
-  # SampleID 2D TSNE projection
-  fig = plt.figure(figsize=(10,32))
-  ax = fig.add_subplot(4, 1, 1);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 1, 2);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
-  ax = fig.add_subplot(4, 1, 3);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
-  ax = fig.add_subplot(4, 1, 4);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
-  plt.tight_layout()
-  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
+def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', final_color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
 
   Returns:
@@ -255,30 +210,32 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
   cluster_key_groups = qcadata.obs[cluster_key].cat.categories.tolist()
   cluster_cell_count = qcadata.obs[cluster_key].value_counts().to_dict()
 
-  # Get the color palette as variable from the string
-  # https://stackoverflow.com/questions/1373164/how-do-i-create-a-variable-number-of-variables
-  final_color_palette = getattr(sc.pl.palettes, color_palette)
-  # Louvain UMAPs
+  # # Get the color palette as variable from the string
+  # # https://stackoverflow.com/questions/1373164/how-do-i-create-a-variable-number-of-variables
+  # final_color_palette = getattr(sc.pl.palettes, color_palette)
+
+  # UMAPs
   subplot_title_fontsize = 12
   subplot_title_width    = 50
-  ncols  = len(cluster_key_groups) + 1
-  fig = plt.figure(figsize=(20, 7*ncols))
-  fig.suptitle("{0} UMAP".format(cluster_key))
-  # Main Louvain Cluster
-  ax = fig.add_subplot(ncols,2, 1); sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
-  ax = fig.add_subplot(ncols,2, 2, projection='3d'); sc.pl.umap(qcadata, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
+  nrows  = len(cluster_key_groups) + 1
+  fig = plt.figure(figsize=(30, 7*nrows))
+  fig.suptitle("{0} TSNE/UMAP".format(cluster_key))
+  # Main Cluster
+  ax = fig.add_subplot(nrows,3, 1); sc.pl.tsne(qcadata, legend_loc=None, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+  ax = fig.add_subplot(nrows,3, 2); sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
+  ax = fig.add_subplot(nrows,3, 3, projection='3d'); sc.pl.umap(qcadata, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
   # Partial visualizaton of a subset of groups in embedding
-  m=3; n=4
+  # m=3; n=4
   for i,b in enumerate(cluster_key_groups):
     print(i, b)
-    # ax = fig.add_subplot(ncols,2, i+m);                  sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
-    # ax = fig.add_subplot(ncols,2, i+n, projection='3d'); sc.pl.umap(qcadata                 , ax=ax, color=cluster_key, groups=[b], size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(ncols,2, i+m);                  sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(ncols,2, i+n, projection='3d'); sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b]                 , ax=ax, color=cluster_key, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    m=4+i*3; n=5+i*3; o=6+i*3;
+    ax = fig.add_subplot(nrows,3, m);                  sc.pl.tsne(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows,3, n);                  sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows,3, o, projection='3d'); sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b]                 , ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/{4}_{3}_{1}_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{4}_{3}_{1}_{2}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_additional_colnames=None, append_new_colnames=False, obs_colnames=None, subset_genes=None):
   """
@@ -528,9 +485,9 @@ def import_marker_genes_list(marker_file, species="mouse"):
     marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   elif species == 'human':
     marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.upper()              for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
-  
+  else:
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   return marker_genes_dict
-
 
 def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name):
   """
@@ -564,26 +521,79 @@ def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespre
     fig = plt.figure(figsize=(25,6*nrows))
     fig.suptitle(marker_list_name)
     # Plot cluster
-    ax = fig.add_subplot(nrows, 3, 1);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-    ax = fig.add_subplot(nrows, 3, 2, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
-    ax = fig.add_subplot(nrows, 3, 3                 ); sc.pl.tsne(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3,                  show=False, title="{0} TSNE".format(cluster_key))
-
+    ax = fig.add_subplot(nrows, 3, 1                 ); sc.pl.tsne(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3,                  show=False, title="{0} TSNE".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 2);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+    
     # Plots mean marker genes
-    ax = fig.add_subplot(nrows, 3, 4);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
-    ax = fig.add_subplot(nrows, 3, 5, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
-    ax = fig.add_subplot(nrows, 3, 6);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    ax = fig.add_subplot(nrows, 3, 4);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    ax = fig.add_subplot(nrows, 3, 5);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
+    ax = fig.add_subplot(nrows, 3, 6, projection='3d'); sc.pl.umap(adata                      , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
     
     # Plot individual marker genes
     m=n=o=0
     for i, mgene in enumerate(validgenes):
       m=7+i*3; n=8+i*3; o=9+i*3;
       # print("- {0}) {4}: m={1}, n={2}, o={3}".format(i, m, n, o, mgene))
-      ax = fig.add_subplot(nrows, 3, m);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
-      ax = fig.add_subplot(nrows, 3, n, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
-      ax = fig.add_subplot(nrows, 3, o);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
-
+      ax = fig.add_subplot(nrows, 3, m);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+      ax = fig.add_subplot(nrows, 3, n);                  sc.pl.umap(adata, legend_loc=None     , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+      ax = fig.add_subplot(nrows, 3, o, projection='3d'); sc.pl.umap(adata                      , ax=ax, color=mgene, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}:{1}".format(k,mgene),subplot_title_width)),fontsize= subplot_title_fontsize)
+      
     plt.tight_layout()
-    plt.savefig("{0}/{1}_{2}_{3}_UMAP_TSNE.png".format(markerDir, marker_list_name, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
+    plt.savefig("{0}/{1}_{2}_{3}_TSNE_UMAP.png".format(markerDir, bname, marker_list_name, k) , bbox_inches='tight', dpi=100); plt.close('all')
+
+def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_key, genespresent, marker_genes_dict, marker_list_name, analysis_stage_num='04', analysis_stage='norm'):
+  """
+  Generate the UMAPs and TSNEs for each marker categories
+
+  Args:
+      adata ([anndata]): [description]
+
+  Desc:
+      # Get genes that are present in the adata
+      # l = ['a', 'b', 'c', 'd', 'f']
+      # d = {'A':['a','x','c'], 'B':['c','d'],'C':['x','y']}
+
+      # for k,v in d.items():
+      #   nv = [x for x in v if x in l]
+      #   d[k] = nv
+
+  """
+  # 5.2) Other marker gene visualization
+  # 5.2.1) Get clean marker dict
+  adata_expressed_genes = adata.var.index.tolist()
+  marker_genes_filtered_dict = defaultdict()
+  for k,v in marker_genes_dict.items():
+    new_genes_list = [x for x in v if x in adata_expressed_genes]
+    if new_genes_list:
+      marker_genes_filtered_dict[k] = new_genes_list
+
+  # 5.2.2) Dot plots: 
+  #   - The dotplot visualization provides a compact way of showing per group, 
+  #     the fraction of cells expressing a gene (dot size) and the mean expression 
+  #     of the gene in those cell (color scale)
+  #   - The use of the dotplot is only meaningful when the counts matrix contains 
+  #     zeros representing no gene counts. dotplot visualization does not work for 
+  #     scaled or corrected matrices in which cero counts had been replaced by other values.
+  sc.pl.dotplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_dotplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+  # 5.2.3) Matrix plots: 
+  #   - The matrixplot shows the mean expression of a gene in a group by 
+  #     category as a heatmap. 
+  #   - In contrast to dotplot, the matrix plot can be used with corrected 
+  #     and/or scaled counts. By default raw counts are used.
+  sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+  sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_vmin0_05_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
+  # 5.2.4) Tracksplots: 
+  #   - The track plot shows the same information as the heatmap, but, 
+  #     instead of a color scale, the gene expression is represented by height
+  sc.pl.tracksplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_trackplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+
 
 def plot_barplots(adata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
   """
