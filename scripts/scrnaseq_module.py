@@ -1,7 +1,7 @@
 def myfunc():
     print('hello')
 
-def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
+def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, perplexity=30, random_state=2105):
   """
   Perform QC analysis and generate QC plots
 
@@ -43,39 +43,40 @@ def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
   print('Total number of cells: {:d}'.format(qcadata.n_obs))
   f.write('\n\n- Total number of cells: {:d}'.format(qcadata.n_obs))
   qcdict['Total number of cells'] = '{:d}'.format(qcadata.n_obs)
+
   sc.pp.filter_cells(qcadata, min_counts = minCountPerCell)
-  print('Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
-  f.write('\n\t- Number of cells after min count filter: {:d}'.format(qcadata.n_obs))
-  qcdict['Number of cells after min count filter'] = '{:d}'.format(qcadata.n_obs)
+  print('Number of cells after min count filter ({: ^6d}): {:d}'.format(minCountPerCell, qcadata.n_obs))
+  f.write('\n\t- Number of cells after min count filter ({: ^6d}): {:d}'.format(minCountPerCell, qcadata.n_obs))
+  qcdict['Number of cells after min count filter ({:d})'.format(minCountPerCell)] = '{:d}'.format(qcadata.n_obs)
 
   sc.pp.filter_cells(qcadata, max_counts = maxCountPerCell)
-  print('Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
-  f.write('\n\t- Number of cells after max count filter: {:d}'.format(qcadata.n_obs))
-  qcdict['Number of cells after max count filter'] = '{:d}'.format(qcadata.n_obs)
+  print('Number of cells after max count filter ({: ^6d}): {:d}'.format(maxCountPerCell, qcadata.n_obs))
+  f.write('\n\t- Number of cells after max count filter ({: ^6d}): {:d}'.format(maxCountPerCell, qcadata.n_obs))
+  qcdict['Number of cells after max count filter ({:d})'.format(maxCountPerCell)] = '{:d}'.format(qcadata.n_obs)
 
   qcadata = qcadata[qcadata.obs['mt_frac'] < mtGenesFilter]
-  print('Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
-  f.write('\n\t- Number of cells after MT filter  : {:d}'.format(qcadata.n_obs))
-  qcdict['Number of cells after MT filter'] = '{:d}'.format(qcadata.n_obs)
+  print('Number of cells after MT filter   ({: ^6f}): {:d}'.format(mtGenesFilter, qcadata.n_obs))
+  f.write('\n\t- Number of cells after MT filter   ({: ^6f}): {:d}'.format(mtGenesFilter, qcadata.n_obs))
+  qcdict['Number of cells after MT filter ({:0.2f})'.format(mtGenesFilter)] = '{:d}'.format(qcadata.n_obs)
 
   qcadata = qcadata[qcadata.obs['rb_frac'] < rbGenesFilter]
-  print('Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
-  f.write('\n\t- Number of cells after Ribo filter: {:d}'.format(qcadata.n_obs))
-  qcdict['Number of cells after Ribo filter'] = '{:d}'.format(qcadata.n_obs)
+  print('Number of cells after Ribo filter ({: ^6f}): {:d}'.format(rbGenesFilter, qcadata.n_obs))
+  f.write('\n\t- Number of cells after Ribo filter ({: ^6f}): {:d}'.format(rbGenesFilter, qcadata.n_obs))
+  qcdict['Number of cells after Ribo filter ({:0.2f})'.format(rbGenesFilter)] = '{:d}'.format(qcadata.n_obs)
 
   sc.pp.filter_cells(qcadata, min_genes = minGenesPerCell)
-  print('Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
-  f.write('\n\t- Number of cells after gene filter: {:d}'.format(qcadata.n_obs))
-  qcdict['Number of cells after gene filter'] = '{:d}'.format(qcadata.n_obs)
+  print('Number of cells after gene filter ({: ^6d}): {:d}'.format(minGenesPerCell, qcadata.n_obs))
+  f.write('\n\t- Number of cells after gene filter ({: ^6d}): {:d}'.format(minGenesPerCell, qcadata.n_obs))
+  qcdict['Number of cells after gene filter ({:d})'.format(minGenesPerCell)] = '{:d}'.format(qcadata.n_obs)
 
   # 1.2.4) Filter genes according to identified QC thresholds:
   print('Total number of genes: {:d}'.format(qcadata.n_vars))
   f.write('\n\n- Total number of genes: {:d}'.format(qcadata.n_vars))
   qcdict['Total number of genes'] = '{:d}'.format(qcadata.n_vars)
   sc.pp.filter_genes(qcadata, min_cells=minCellsPergene)
-  print('Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
-  f.write('\n\t- Number of genes after minCellsPergene filter: {:d}'.format(qcadata.n_vars))
-  qcdict['Number of genes after minCellsPergene filter'] = '{:d}'.format(qcadata.n_vars)
+  print('Number of genes after minCellsPergene filter ({: ^6d}): {:d}'.format(minCellsPergene, qcadata.n_vars))
+  f.write('\n\t- Number of genes after minCellsPergene filter ({: ^6d}): {:d}'.format(minCellsPergene, qcadata.n_vars))
+  qcdict['Number of genes after minCellsPergene filter ({:d})'.format(minCellsPergene)] = '{:d}'.format(qcadata.n_vars)
 
   print("- Filtered rawqcadata shape: {0}".format(qcadata.shape))
   f.write("\n\n- Filtered rawqcadata shape: {0}".format(qcadata.shape))
@@ -90,12 +91,49 @@ def  perform_qc(adata, plotsDir, bname, num_neighbors=15, perplexity=30 ):
   # Plot filtered QC data
   print("- Plot filtered QC data")
   qc_plots(qcadata, plotsDir, "{0}_filtered".format(bname))
-  
-  print("- Plot filtered QC data UMAPs")
-  plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), num_neighbors)
 
-  print("- Plot filtered QC data TSNEs")
-  plot_raw_tsne(qcadata, plotsDir, "{0}_filtered".format(bname), perplexity)
+  # Calculations for the visualizations
+  qcadata = calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, random_state=2105)
+  
+  print("- Plot filtered QC data UMAPs and TSNEs")
+  plot_raw_umap_tsne(qcadata, plotsDir, "{0}_filtered".format(bname),  main_title = 'Filtered_raw', batch_key=None)
+
+  # if batch_key == None:
+  #   print("- Plot filtered QC data UMAPs and TSNEs")
+  #   plot_raw_umap_tsne(qcadata, plotsDir, "{0}_filtered".format(bname),  main_title = 'Filtered_raw', batch_key=None)
+  # else:
+  #   print("- Plot filtered QC data UMAPs")
+  #   plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), num_neighbors)
+
+  #   print("- Plot filtered QC data TSNEs")
+  #   plot_raw_tsne(qcadata, plotsDir, "{0}_filtered".format(bname), perplexity)
+
+  return qcadata
+
+def calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, random_state=2105):
+  """[summary] Calculations for the visualizations
+
+  Returns:
+      [type]: [description]
+  """
+  # Compute variable genes
+  # We first need to define which features/genes are important in our dataset to distinguish cell types. 
+  # For this purpose, we need to find genes that are highly variable across cells, 
+  # which in turn will also provide a good separation of the cell clusters.
+  sc.pp.highly_variable_genes(qcadata, flavor='cell_ranger')
+  print('\n','Number of highly variable genes: {:d}'.format(np.sum(qcadata.var['highly_variable'])))
+
+  # Compute PCA coordinates, loadings and variance decomposition
+  sc.pp.pca(qcadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = random_state)
+
+  # Compute a neighborhood graph
+  sc.pp.neighbors(qcadata, random_state = random_state, n_neighbors=num_neighbors)
+
+  # Embed the neighborhood graph using UMAP
+  sc.tl.umap(qcadata, random_state = random_state, n_components=3)
+
+  # Embed the neighborhood graph using TSNE
+  sc.tl.tsne(qcadata , random_state = random_state, n_pcs=50, perplexity=perplexity)
 
   return qcadata
 
@@ -106,66 +144,98 @@ def qc_plots(qcadata, plotsDir, bname):
   Returns: None
   """
   n = 5
-  fig = plt.figure(figsize=(15,40))
+  fig = plt.figure(figsize=(40,15))
   # Sample quality plots
-  ax = fig.add_subplot(n, 2, 1); t1  = sc.pl.violin(qcadata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
-  ax = fig.add_subplot(n, 2, 2); t2  = sc.pl.violin(qcadata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 1); t1  = sc.pl.violin(qcadata, ['n_genes_by_counts', 'n_counts'], jitter=0.4, size=2, log=True, cut=0, ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 6); t2  = sc.pl.violin(qcadata, ['mt_frac','rb_frac'], jitter=0.4, size=2, log=False, cut=0, ax = ax, show=False)
   # 1.2.4) Thresholdingecision based on counts
-  ax = fig.add_subplot(n, 2, 3); p3  = sns.distplot(qcadata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
-  ax = fig.add_subplot(n, 2, 4); p4  = sns.distplot(qcadata.obs['n_counts'][qcadata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
+  ax = fig.add_subplot(2, n, 2); p3  = sns.distplot(qcadata.obs['n_counts'], kde=False, ax = ax, bins=50); #plt.show()
+  ax = fig.add_subplot(2, n, 7); p4  = sns.distplot(qcadata.obs['n_counts'][qcadata.obs['n_counts']<2000], kde=False, ax = ax, bins=50); #plt.show()
   # 1.2.5) Thresholding decision based on genes
-  ax = fig.add_subplot(n, 2, 5); p6  = sns.distplot(qcadata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
-  ax = fig.add_subplot(n, 2, 6); p7  = sns.distplot(qcadata.obs['n_genes'][qcadata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
+  ax = fig.add_subplot(2, n, 3); p6  = sns.distplot(qcadata.obs['n_genes'], kde=False, ax = ax, bins=50); # plt.show()
+  ax = fig.add_subplot(2, n, 8); p7  = sns.distplot(qcadata.obs['n_genes'][qcadata.obs['n_genes']<1000], kde=False, ax = ax, bins=50); # plt.show()
   # 1.2.6) mt fraction plots
-  ax = fig.add_subplot(n, 2, 7); p8  = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
-  ax = fig.add_subplot(n, 2, 8); p9  = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 4); p8  = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 9); p9  = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='mt_frac', ax = ax, show=False)
   # 1.2.7) rb fraction plots
-  ax = fig.add_subplot(n, 2, 9); p10 = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
-  ax = fig.add_subplot(n, 2, 10);p11 = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 5); p10 = sc.pl.scatter(qcadata, 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
+  ax = fig.add_subplot(2, n, 10);p11 = sc.pl.scatter(qcadata[qcadata.obs['n_counts']<2000], 'n_counts', 'n_genes', color='rb_frac', ax = ax, show=False)
   # Save plot
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-def plot_raw_umap(qcadata, plotsDir, bname, num_neighbors=15):
+def plot_raw_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', batch_key='sampleID'):
   """[summary]
 
   Returns:
       [type]: [description]
   """
-  # # For debugging purpose
-  # qcadata=rawadata.copy()
-  # 1.2.9) Compute variable genes
-  # We first need to define which features/genes are important in our dataset to distinguish cell types. For this purpose, we need to find genes that are highly variable across cells, which in turn will also provide a good separation of the cell clusters.
-  sc.pp.highly_variable_genes(qcadata, flavor='cell_ranger')
-  print('\n','Number of highly variable genes: {:d}'.format(np.sum(qcadata.var['highly_variable'])))
+  # 1.2.11) Plot visualizations
+  sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
+  plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-  # 1.2.10) Calculations for the visualizations
-  sc.pp.pca(qcadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = 2105)
-  sc.pp.neighbors(qcadata, random_state = 2105, n_neighbors=num_neighbors)
-  sc.tl.umap(qcadata, random_state = 2105, n_components=3)
+  # Get the base features
+  features = ['log_counts', 'mt_frac', 'rb_frac']
 
+  # If batch key is provided then plot that as well
+  if batch_key is not None:
+    features.extend(batch_key)
+
+  # Get plot parameters
+  subplot_title_fontsize = 12
+  subplot_title_width    = 50
+  nrows                  = len(features)
+  fig                    = plt.figure(figsize=(25,6*nrows))
+  fig.suptitle(main_title)
+  
+  # Plot individual marker genes
+  m=n=o=0
+  for i, mfeature in enumerate(features):
+    m=1+i*3; n=2+i*3; o=3+i*3;
+    # print("- {0}) {4}: m={1}, n={2}, o={3}".format(i, m, n, o, mfeature))
+    ax = fig.add_subplot(nrows, 3, m);                  sc.pl.umap(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 3, n, projection='3d'); sc.pl.umap(qcadata                      , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 3, o);                  sc.pl.tsne(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+
+  plt.tight_layout()
+  plt.savefig("{0}/{1}_raw_filtered_UMAP_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+
+def plot_raw_tsne(qcadata, plotsDir, bname, batch_key='sampleID'):
+  # SampleID 2D TSNE projection
+  fig = plt.figure(figsize=(10,32))
+  ax = fig.add_subplot(4, 1, 1);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 1, 2);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 1, 3);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
+  ax = fig.add_subplot(4, 1, 4);                  sc.pl.tsne(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
+  plt.tight_layout()
+  plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def plot_raw_umap(qcadata, plotsDir, bname, batch_key='sampleID', num_neighbors=15):
+  """[summary]
+
+  Returns:
+      [type]: [description]
+  """
   # 1.2.11) Plot visualizations
   sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
   plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
   # UMAPS
   fig = plt.figure(figsize=(20,32))
   # 2D projection
-  ax = fig.add_subplot(4, 2, 1);                  sc.pl.umap(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 1);                  sc.pl.umap(qcadata   ,                  ax=ax, color=batch_key  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
   ax = fig.add_subplot(4, 2, 3);                  sc.pl.umap(qcadata   ,                  ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
   ax = fig.add_subplot(4, 2, 5);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="mt_frac UMAP")
   ax = fig.add_subplot(4, 2, 7);                  sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="rb_frac UMAP")
   # 3D projection
-  ax = fig.add_subplot(4, 2, 2, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
+  ax = fig.add_subplot(4, 2, 2, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color=batch_key  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
   ax = fig.add_subplot(4, 2, 4, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color='log_counts', palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format('log_counts'))
   ax = fig.add_subplot(4, 2, 6, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="mt_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="mt_frac UMAP")
   ax = fig.add_subplot(4, 2, 8, projection='3d'); sc.pl.umap(qcadata   , legend_loc=None, ax=ax, color="rb_frac"   , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="rb_frac UMAP")
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_sampleID_logCounts_mt_rb_frac_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-def plot_raw_tsne(qcadata, plotsDir, bname, perplexity=30):
-  # Calculations for the visualizations
-  sc.tl.tsne(qcadata , random_state = 2105, n_pcs=50, perplexity=perplexity)
-
+def plot_raw_tsne(qcadata, plotsDir, bname, batch_key='sampleID', perplexity=30):
   # SampleID 2D TSNE projection
   fig = plt.figure(figsize=(10,32))
   ax = fig.add_subplot(4, 1, 1);                  sc.pl.tsne(qcadata   ,                  ax=ax, color='sampleID'  , palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format('log_counts'))
@@ -210,7 +280,7 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
   plt.tight_layout()
   plt.savefig("{0}/{4}_{3}_{1}_{2}_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
-def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs_new_colnames=None, append_new_colnames=False, subset_genes=None):
+def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_additional_colnames=None, append_new_colnames=False, obs_colnames=None, subset_genes=None):
   """
   Name:
     save_adata_to_excel
@@ -219,18 +289,18 @@ def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs
     Save the annData as a tab separated file with genes and observation columns for each cell
 
   Parameters:
-    qcadata             (annData): The ann data object that is used at the current stage of the analysis
-    dataDir             (str)    : Path the data directory
-    bname               (str)    : basename that goes into the filename
-    obs_colnames        (list)   : Default column names that will be added with the genes
-                                   Default = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
+    qcadata             (annData) : The ann data object that is used at the current stage of the analysis
+    dataDir             (str)     : Path the data directory
+    outputFileName      (str)     : Output filename
+    obs_colnames        (list)    : Default column names that will be added with the genes
+                                    Default = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
  
-    obs_new_colnames    (list)   : New or additional column names that will be added with the genes
-                                   Example: ['batch', 'sampleID', 'AllTumor_hgMycIresCd2', 'humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2', 'louvain_r1']
+    obs_additional_colnames (list): New or additional column names that will be added with the genes
+                                    Example: ['batch', 'sampleID', 'AllTumor_hgMycIresCd2', 'humanMyc', 'humanMycMappedToMouseMyc', 'gap', 'ires', 'humanCd2', 'louvain_r1']
 
     subset_genes        (list)    : A small subset of genes that should be saved.
                                     Example: ['Hbb-bs','Hba-a1','Hba-a2']
-    append_new_colnames (bool)   : False
+    append_new_colnames (bool)    : False
     
   Return: 
     None
@@ -240,14 +310,16 @@ def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs
   # Note: It is not advisable to use mutatble default arguments to a function. 
   #       Hence the default argument is None and then assign the data type into the function. 
   #       Help: https://nikos7am.com/posts/mutable-default-arguments/
-  if (obs_new_colnames is None): obs_new_colnames = []
+  if (obs_additional_colnames is None): obs_additional_colnames = []
   if (subset_genes is None): subset_genes = []
   if (obs_colnames is None): obs_colnames = ['n_genes_by_counts', 'log1p_n_genes_by_counts', 'total_counts', 'log1p_total_counts', 'log_counts', 'n_genes', 'mt_frac', 'rb_frac']
 
   # Extend the column names to the default column names
   if (append_new_colnames):
-    obs_colnames.extend(obs_new_colnames)
-  
+    obs_colnames.extend(obs_additional_colnames)
+
+  # print(obs_colnames)
+
   # Get the dataframes for count data and observations
   countsDF = qcadata.to_df()
   obsDF    = qcadata.obs.copy()
@@ -256,10 +328,13 @@ def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs
   subset_obsDF = obsDF[obs_colnames].copy()
 
   # Subset the counts dataframe if the parameters are set
-  qcadata_expressed_gene_list = qcadata.var.index.tolist()
-  subset_expressed_gene_list  = [x for x in subset_genes if x in qcadata_expressed_gene_list]
-  subset_countsDF             = countsDF[subset_expressed_gene_list].copy()
-  
+  if(subset_genes):
+    qcadata_expressed_gene_list = qcadata.var.index.tolist()
+    subset_expressed_gene_list  = [x for x in subset_genes if x in qcadata_expressed_gene_list]
+    subset_countsDF             = countsDF[subset_expressed_gene_list].copy()
+  else:
+    subset_countsDF             = countsDF.copy()
+
   # Merge the selected observation and count dataframes
   print("\n- Merge the selected observation and count dataframes")
   merged_subset_obs_countDF = pd.concat([subset_obsDF, subset_countsDF], axis=1)
@@ -268,7 +343,7 @@ def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_colnames=None, obs
   merged_subset_obs_countDF = merged_subset_obs_countDF.describe()[1:].append(merged_subset_obs_countDF)
   
   # Save the dataframe
-  merged_subset_obs_countDF.T.to_csv("{0}/{1}.txt".format(dataDir, outputFileName), sep='\t', header=True, index=True, index_label="cellIDs")
+  merged_subset_obs_countDF.T.to_csv("{0}/{1}".format(dataDir, outputFileName), sep='\t', header=True, index=True, index_label="cellIDs")
   
 ########################
 # Normalization Modules
@@ -422,6 +497,41 @@ def cell_cycle_correction(adata, plotsDir, bname):
 ###############################
 # MARKER GENES MODULES
 ###############################
+
+def import_marker_genes_list(marker_file, species="mouse"):
+  """
+  Name:
+    import_marker_genes_list
+  
+  Description: 
+    Read the marker genes into a pandas dataframe and return a marker genes dictionary
+
+  Parameters:
+    marker_file (Str):  - Marker genes file name with path.
+                        - Expected format: CellTypes <tab> MarkerGenes (comma separated list) with the header CellTypes and MarkerGenes
+
+                        ┌────────────────────────────┬────────────────────────────────────────────────────────────────────────┐
+                        │         CellTypes          │                              MarkerGenes                               │
+                        ├────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+                        │ Pit_cell                   │ Gm26917,Gm42418,Gm23935                                                │
+                        │ Epithelial_cell_MT4_high   │ Krt10,Krt1,Mt4,Krtdap,Dapl1,Fabp5,Dmkn,Lypd3,Lgals7,Plin2              │
+                        │ Epithelial_cell_Clca1_high │ Krt20,Clca1,Psapl1,Lypd8,Fcgbp,Phgr1,Lgals4,Fabp2,Sptssb,2210407C18Rik │
+                        └────────────────────────────┴────────────────────────────────────────────────────────────────────────┘
+                       
+                       - Note: Please avoid using spaces or other non-ascii characters. Underscores are okay. 
+
+  Return: 
+    marker_genes_dict (Dict): A dictionary containing marker genes list. The keys are celltypes and values are marker genes
+  """
+  marker_genesDF    = pd.read_csv(marker_file, sep="\t", header=0, index_col=None)
+  if species == 'mouse':
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+  elif species == 'human':
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.upper()              for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+  
+  return marker_genes_dict
+
+
 def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name):
   """
   Generate the UMAPs and TSNEs for each marker categories
@@ -445,6 +555,8 @@ def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespre
     ids = np.in1d(adata.var_names,validgenes)
     print("- Genes present {0}: {1}".format(k,validgenes))
 
+    subplot_title_fontsize = 12
+    subplot_title_width    = 50
     ngenes = len(validgenes)
     nrows  = ngenes + 2
     adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
@@ -473,3 +585,48 @@ def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespre
     plt.tight_layout()
     plt.savefig("{0}/{1}_{2}_{3}_UMAP_TSNE.png".format(markerDir, marker_list_name, bname, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
+def plot_barplots(adata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
+  """
+  Plot separate bar plots, coloured in by cluster annotation, for each tissue
+  """
+  # Convert palette into colormap
+  clcmap = ListedColormap(sc.pl.palettes.zeileis_28)
+  # Get the DF of tissue and clusters
+  clusterBatchDF = adata.obs[['batch','{0}'.format(cluster_key)]].copy()
+  # Replace batch number with batch names
+  clusterBatchDF.replace({'batch': sampleIdDict}, inplace=True)
+  # Remove index for groupby
+  clusterBatchDF.reset_index(drop=True, inplace=True)
+  # Get the number of cells for each cluster in every tissue
+  ncellsClusterBatchDF = clusterBatchDF.groupby(['batch','{0}'.format(cluster_key)]).size()
+  # Get the percent of cells for each cluster in every tissue 
+  pcellsClusterBatchDF = pd.crosstab(index=clusterBatchDF['batch'], columns=clusterBatchDF['{0}'.format(cluster_key)], values=clusterBatchDF['{0}'.format(cluster_key)], aggfunc='count', normalize='index')
+  # Plot the barplots
+  fig = plt.figure(figsize=(32,24)); fig.suptitle("Cells for each {0} in each tissue".format(cluster_key))
+  # plot numbers of cells
+  ax = fig.add_subplot(2, 2, 1); ncellsClusterBatchDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="Number of cells")
+  # plot percent of cells
+  ax = fig.add_subplot(2, 2, 2); pcellsClusterBatchDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells")
+  # Shrink current axis by 20%
+  box = ax.get_position()
+  ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+  # Put a legend to the right of the current axis
+  ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+
+  # Get the number of cells for each tissue in every cluster
+  nbatchPerClusterIdDF = clusterBatchDF.groupby(['{0}'.format(cluster_key),'batch']).size()
+  # Get the percent of cells for each tissue in every cluster 
+  pbatchPerClusterIdDF = pd.crosstab(index=clusterBatchDF['{0}'.format(cluster_key)], columns=clusterBatchDF['batch'], values=clusterBatchDF['batch'], aggfunc='count', normalize='index')
+  # Plot the barplots
+  ax = fig.add_subplot(2, 2, 3); nbatchPerClusterIdDF.unstack().plot(kind='barh', stacked=True, colormap=clcmap, ax=ax, legend=None, title="number of cells for each tissue in every cluster")
+  # plot percent of cells
+  ax = fig.add_subplot(2, 2, 4); pbatchPerClusterIdDF.plot(kind='barh',stacked=True, colormap=clcmap, ax=ax, title="% of cells for each tissue in every cluster")
+  # Shrink current axis by 20%
+  box = ax.get_position()
+  ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+  # Put a legend to the right of the current axis
+  ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='{0}'.format(cluster_key), title_fontsize=12)
+
+  # Save plots in a 2x2 grid style
+  plt.tight_layout() # For non-overlaping subplots
+  plt.savefig("{0}/{4}_{3}_{1}_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
