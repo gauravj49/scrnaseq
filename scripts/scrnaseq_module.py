@@ -92,21 +92,17 @@ def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, 
   print("- Plot filtered QC data")
   qc_plots(qcadata, plotsDir, "{0}_filtered".format(bname))
 
-  # Calculations for the visualizations
+  # Calculations for the visalizations
   qcadata = calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, random_state=2105)
   
   print("- Plot filtered QC data UMAPs and TSNEs")
-  plot_raw_umap_tsne(qcadata, plotsDir, "{0}_filtered".format(bname),  main_title = 'Filtered_raw', batch_key=None)
+  # Get the base features
+  features = ['log_counts', 'mt_frac', 'rb_frac']
+  # If batch key is provided then plot that as well
+  if batch_key is not None:
+    features.extend(batch_key)
 
-  # if batch_key == None:
-  #   print("- Plot filtered QC data UMAPs and TSNEs")
-  #   plot_raw_umap_tsne(qcadata, plotsDir, "{0}_filtered".format(bname),  main_title = 'Filtered_raw', batch_key=None)
-  # else:
-  #   print("- Plot filtered QC data UMAPs")
-  #   plot_raw_umap(qcadata, plotsDir, "{0}_filtered".format(bname), num_neighbors)
-
-  #   print("- Plot filtered QC data TSNEs")
-  #   plot_raw_tsne(qcadata, plotsDir, "{0}_filtered".format(bname), perplexity)
+  plot_umap_tsne(qcadata, plotsDir, "{0}_filtered_UMAP_TSNE".format(bname), features=features, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy)
 
   return qcadata
 
@@ -164,7 +160,7 @@ def qc_plots(qcadata, plotsDir, bname):
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
-def plot_raw_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', batch_key='sampleID'):
+def plot_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', features=None, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
 
   Returns:
@@ -173,13 +169,6 @@ def plot_raw_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', ba
   # 1.2.11) Plot visualizations
   sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
   plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
-
-  # Get the base features
-  features = ['log_counts', 'mt_frac', 'rb_frac']
-
-  # If batch key is provided then plot that as well
-  if batch_key is not None:
-    features.extend(batch_key)
 
   # Get plot parameters
   subplot_title_fontsize = 12
@@ -193,12 +182,12 @@ def plot_raw_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', ba
   for i, mfeature in enumerate(features):
     m=1+i*3; n=2+i*3; o=3+i*3;
     # print("- {0}) {4}: m={1}, n={2}, o={3}".format(i, m, n, o, mfeature))
-    ax = fig.add_subplot(nrows, 3, m);                  sc.pl.umap(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(nrows, 3, n, projection='3d'); sc.pl.umap(qcadata                      , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(nrows, 3, o);                  sc.pl.tsne(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
-
+    ax = fig.add_subplot(nrows, 3, m);                  sc.pl.tsne(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 3, n);                  sc.pl.umap(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 3, o, projection='3d'); sc.pl.umap(qcadata                      , ax=ax, color=mfeature, palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    
   plt.tight_layout()
-  plt.savefig("{0}/{1}_raw_filtered_UMAP_TSNE.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+  plt.savefig("{0}/{3}_{2}_{1}.png".format(plotsDir, bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', final_color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
