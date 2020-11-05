@@ -92,7 +92,7 @@ def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, 
   print("- Plot filtered QC data")
   qc_plots(qcadata, plotsDir, "{0}_filtered".format(bname))
 
-  # Calculations for the visalizations
+  # Calculations for the visualizations
   qcadata = calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, random_state=2105)
   
   print("- Plot filtered QC data UMAPs and TSNEs")
@@ -187,7 +187,7 @@ def plot_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', featur
     ax = fig.add_subplot(nrows, 3, o, projection='3d'); sc.pl.umap(qcadata                      , ax=ax, color=mfeature, palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
     
   plt.tight_layout()
-  plt.savefig("{0}/{3}_{2}_{1}.png".format(plotsDir, bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{3}_{1}_{2}.png".format(plotsDir, bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', final_color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
@@ -224,7 +224,7 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/{4}_{3}_{1}_{2}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{3}_{1}_{2}_{3}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
 
 def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_additional_colnames=None, append_new_colnames=False, obs_colnames=None, subset_genes=None):
   """
@@ -439,6 +439,75 @@ def cell_cycle_correction(adata, plotsDir, bname):
   plt.tight_layout()
   plt.savefig("{0}/02_norm_{1}_scran_cell_cycle_plots.png".format(plotsDir, bname) , bbox_inches='tight', dpi=150); plt.close('all')
 
+########################
+# CLUSTERING MODULES
+########################
+def get_color_palette(nelements=15):
+  """
+  Name:
+    get_color_palette
+  
+  Description: 
+    - Get a color palette based on number of clusters or samples
+    - Provides a list of colors to use for plotting categorical annotation groups
+
+  Parameters:
+    nelements  (str) : Number of elements (ex. number of clusters or samples)
+
+  Return: 
+    colPalette (list): The color palette based on number of clusters or samples
+  """
+  # Default colors
+  colPalette = sc.pl.palettes.vega_20_scanpy
+
+  if 21 <= nelements <= 28:
+    # https://epub.wu.ac.at/1692/1/document.pdf
+    colPalette = sc.pl.palettes.zeileis_28
+  else:
+    # http://godsnotwheregodsnot.blogspot.de/2012/09/color-distribution-methodology.html
+    colPalette = sc.pl.palettes.godsnot_102
+  return colPalette
+
+def calculate_plot_clustering(qcadata, plotsDir, bname, main_title = 'Clustering all resolution TSNE/UMAP', additional_features=None, analysis_stage_num='03', analysis_stage='clustering', color_palette=sc.pl.palettes.vega_20_scanpy, clustering_algorithm='leiden', random_state = 2105):
+  """
+  Name:
+    calculate_plot_clustering
+  
+  Description: 
+    Calculate and visualize the clustering using highly variable genes
+
+  Parameters:
+    qcadata             (annData) : The ann data object that is used at the current stage of the analysis
+    plotsDir            (str)     : Path the plots directory
+    bname               (str)     : Output file basename
+    
+    
+  Return: 
+    qcadata             (annData) : The ann data object that is used at the current stage of the analysis
+  """
+  # Check if correct clustering algorithm is passed. If not, then default to leiden
+  if clustering_algorithm is not in ['leiden', 'lovain']:
+    print("WARNING: Could not found clustering algorithm.\n\t- Values allowed: leiden or louvain.\n\t- Defaulting to leiden.")
+    clustering_algorithm = 'leiden'
+
+  # Get resolution list
+  cluster_resolution = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2]
+  # Perform clustering - using highly variable genes
+  print("- Perform clustering - using highly variable genes")
+  for cres in cluster_resolution:
+    res_key = '{0}_r{1}'.format(clustering_algorithm, cres)
+    if clustering_algorithm == 'leiden':
+      sc.tl.leiden(adata, resolution=cres, key_added=res_key, random_state=random_state)
+    elif clustering_algorithm == 'louvain':
+      sc.tl.louvain(adata, resolution=cres, key_added=res_key, random_state=random_state)
+    print(adata.obs[res_key].value_counts())
+
+  # Visualize the clustering and how this is reflected by different technical covariates
+  print("- Visualize the clustering and how this is reflected by different technical covariates")
+  cluster_features = ['{0}_r{1}'.format(clustering_algorithm, cres) for cres in cluster_resolution]
+  plot_umap_tsne(adata, plotsDir, "{0}_clustering_all_leiden_UMAP_TSNE".format(bname), main_title = 'Clustering all resolution TSNE/UMAP', features=cluster_features, analysis_stage_num=analysis_stage_num, analysis_stage=analysis_stage, color_palette=color_palette)
+
+  return qcadata
 
 ###############################
 # MARKER GENES MODULES
@@ -557,6 +626,9 @@ def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_k
     if new_genes_list:
       marker_genes_filtered_dict[k] = new_genes_list
 
+  # Calculate the dendrogram again
+  sc.tl.dendrogram(adata, groupby=cluster_key)
+
   # 5.2.2) Dot plots: 
   #   - The dotplot visualization provides a compact way of showing per group, 
   #     the fraction of cells expressing a gene (dot size) and the mean expression 
@@ -572,11 +644,14 @@ def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_k
   #     category as a heatmap. 
   #   - In contrast to dotplot, the matrix plot can be used with corrected 
   #     and/or scaled counts. By default raw counts are used.
+  # sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
   sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
   plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
   sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
   plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_vmin0_05_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
+  # Calculate the dendrogram again
+  sc.tl.dendrogram(adata, groupby=cluster_key)
   # 5.2.4) Tracksplots: 
   #   - The track plot shows the same information as the heatmap, but, 
   #     instead of a color scale, the gene expression is represented by height
@@ -629,3 +704,5 @@ def plot_barplots(adata, plotsDir, bname, cluster_key='sampleID', cluster_bname=
   # Save plots in a 2x2 grid style
   plt.tight_layout() # For non-overlaping subplots
   plt.savefig("{0}/{4}_{3}_{1}_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+
+# 
