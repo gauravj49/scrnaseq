@@ -337,10 +337,16 @@ plt.savefig("{0}/04_{1}_sampleID_condition_ImmGenLabels_MouseRnaseqLabels_TSNE.p
 # plt.tight_layout()
 # plt.savefig("{0}/04_{1}_MarkerGene_testList_MouseRnaseqLabels_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
 
+# Save test marker gene plot
+sc.pl.umap(adata, color=['louvain_r1', 'Foxp3', 'Cd3d', 'Cd4', 'Cd8a', 'Ptprc'], legend_loc='on data', use_raw=False, color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, show=False)
+plt.tight_layout()
+plt.savefig("{0}/04_{1}_MarkerGene_testList2_louvain_r1_UMAP.png".format(plotsDir, bname) , bbox_inches='tight', dpi=100); plt.close('all')
+
+
 # 6.4) Save the singleR annotated adata into a file
 # Write the adata object to file
 adatafile  = "{0}/04_{1}_singleR_annotated_adata.h5ad" .format(dataDir, projName); adata.write(adatafile)
-# # Read back the corrected adata object
+# # # Read back the corrected adata object
 # adatafile  = "{0}/04_{1}_singleR_annotated_adata.h5ad" .format(dataDir, projName); singleradata  = sc.read_h5ad(adatafile)
 # adata = singleradata.copy()
 
