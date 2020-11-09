@@ -25,7 +25,9 @@ ipython # Python 3.7.0 (default, Jun 28 2018, 13:15:42)
 
 # System variables and directories
 projName        = "stomachBaseline_mitGFP_3520_Antrum"
+input_h5_files  = 'input/manec/stomachBaseline/3520_Antrum_filtered_feature_bc_matrix.h5'
 # projName        = "stomachBaseline_mitGFP_3520_Corpus"
+# input_h5_files  = 'input/manec/stomachBaseline/3520_Corpus_filtered_feature_bc_matrix.h5'
 output_dir      = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/output/manec/{0}".format(projName); create_dir("{0}".format(output_dir))
 ccGenes_macosko = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/macosko_cell_cycle_genes_mmu.txt"
 ccGenes_regev   = "/home/rad/users/gaurav/projects/seqAnalysis/scrnaseq/input/annotations/regev_lab_cell_cycle_genes_mmu.txt"
@@ -56,7 +58,7 @@ sc.logging.print_header()
 
 # 1) Reading and performing QC on individual datasets
 # 1.1) Reading the data in the anndata object individually
-adata = sc.read_10x_h5('input/manec/stomachBaseline/3520_Antrum_filtered_feature_bc_matrix.h5')
+adata = sc.read_10x_h5(input_h5_files)
 # adata = sc.read_10x_h5('input/manec/stomachBaseline/3520_Corpus_filtered_feature_bc_matrix.h5')
 
 # 1.2) Make the variable names unique and calculate some general qc-stats for genes and cells
@@ -109,8 +111,11 @@ adatafile  = "{0}/02_norm_scran_ccc_adata.h5ad" .format(dataDir, projName); adat
 ########################
 # 4) Clustering
 ########################
-# 4.1) Perform clustering - using highly variable genes
-adata = calculate_plot_clustering(adata, plotsDir, bname, main_title = 'Clustering all resolution TSNE/UMAP', additional_features=None, analysis_stage_num='03', analysis_stage='clustering', color_palette=sc.pl.palettes.vega_20_scanpy, clustering_algorithm='leiden', random_state = 2105)
+# 4.1) Calculate the umap and tsne with spreadout parameters
+adata = calculate_umap_tsne(adata, num_neighbors=5, perplexity=10, early_exaggeration=5, random_state=2105)
+
+# 4.2) Perform clustering - using highly variable genes
+adata = calculate_plot_clustering(adata, plotsDir, bname, main_title = 'Clustering all resolution TSNE/UMAP', additional_features=None, analysis_stage_num='03', analysis_stage='clustering', color_palette=sc.pl.palettes.godsnot_102, clustering_algorithm='leiden', random_state = 2105)
 
 # 4.3) Select the resolution for clusters
 leidenadata      = adata.copy()
@@ -121,7 +126,7 @@ colPalette       = get_color_palette(nElementsCluster)
 
 # Plot selected features
 cluster_features = [cluster_key, 'log_counts', 'mt_frac', 'rb_frac']
-plot_umap_tsne(adata, plotsDir, "{0}_{1}_sampleID_counts_mtfrac_UMAP_TSNE".format(bname, cluster_bname), main_title = 'Leiden sampleID Counts mt/rb-frac TSNE/UMAP', features=cluster_features, analysis_stage_num='03', analysis_stage='clustering', color_palette=colPalette)
+plot_umap_tsne(adata, plotsDir, "{0}_{1}_counts_mtfrac_UMAP_TSNE".format(bname, cluster_bname), main_title = 'Leiden Counts mt/rb-frac TSNE/UMAP', features=cluster_features, analysis_stage_num='03', analysis_stage='clustering', color_palette=colPalette)
 
 # 4.4) leiden UMAPs and TSNEs
 fig = plt.figure(figsize=(24,14))
