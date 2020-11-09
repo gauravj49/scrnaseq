@@ -106,33 +106,6 @@ def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, 
 
   return qcadata
 
-def calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, random_state=2105):
-  """[summary] Calculations for the visualizations
-
-  Returns:
-      [type]: [description]
-  """
-  # Compute variable genes
-  # We first need to define which features/genes are important in our dataset to distinguish cell types. 
-  # For this purpose, we need to find genes that are highly variable across cells, 
-  # which in turn will also provide a good separation of the cell clusters.
-  sc.pp.highly_variable_genes(qcadata, flavor='cell_ranger')
-  print('\n','Number of highly variable genes: {:d}'.format(np.sum(qcadata.var['highly_variable'])))
-
-  # Compute PCA coordinates, loadings and variance decomposition
-  sc.pp.pca(qcadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = random_state)
-
-  # Compute a neighborhood graph
-  sc.pp.neighbors(qcadata, random_state = random_state, n_neighbors=num_neighbors)
-
-  # Embed the neighborhood graph using UMAP
-  sc.tl.umap(qcadata, random_state = random_state, n_components=3)
-
-  # Embed the neighborhood graph using TSNE
-  sc.tl.tsne(qcadata , random_state = random_state, n_pcs=50, perplexity=perplexity)
-
-  return qcadata
-
 def qc_plots(qcadata, plotsDir, bname):
   """
   Plot QC matrices
@@ -160,6 +133,43 @@ def qc_plots(qcadata, plotsDir, bname):
   plt.tight_layout()
   plt.savefig("{0}/01_raw_{1}_QC_matrices.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
 
+def calculate_umap_tsne(qcadata, num_neighbors=15, perplexity=30, early_exaggeration=12, random_state=2105):
+  """[summary] Calculations for the visualizations
+
+  perplexity : float, int (default: 30)
+               The perplexity is related to the number of nearest neighbors that is used in other manifold learning algorithms. 
+               Larger datasets usually require a larger perplexity. Consider selecting a value between 5 and 50. 
+               The choice is not extremely critical since t-SNE is quite insensitive to this parameter.
+
+  early_exaggeration : Union[float, int] (default: 12)
+              Controls how tight natural clusters in the original space are in the embedded space and how much space will be between them. 
+              For larger values, the space between natural clusters will be larger in the embedded space. Again, the choice of this 
+              parameter is not very critical. If the cost function increases during initial optimization, the early exaggeration factor or 
+              the learning rate might be too high.
+  Returns:
+      [type]: [description]
+  """
+  # Compute variable genes
+  # We first need to define which features/genes are important in our dataset to distinguish cell types. 
+  # For this purpose, we need to find genes that are highly variable across cells, 
+  # which in turn will also provide a good separation of the cell clusters.
+  sc.pp.highly_variable_genes(qcadata, flavor='cell_ranger')
+  print('\n','Number of highly variable genes: {:d}'.format(np.sum(qcadata.var['highly_variable'])))
+
+  # Compute PCA coordinates, loadings and variance decomposition
+  sc.pp.pca(qcadata, n_comps=50, use_highly_variable=True, svd_solver='arpack', random_state = random_state)
+
+  # Compute a neighborhood graph
+  sc.pp.neighbors(qcadata, random_state = random_state, n_neighbors=num_neighbors)
+
+  # Embed the neighborhood graph using UMAP
+  sc.tl.umap(qcadata, random_state = random_state, n_components=3)
+
+  # Embed the neighborhood graph using TSNE
+  sc.tl.tsne(qcadata , random_state = random_state, n_pcs=50, perplexity=perplexity, early_exaggeration=early_exaggeration)
+
+  return qcadata
+
 def plot_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', features=None, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
 
@@ -168,7 +178,7 @@ def plot_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', featur
   """
   # 1.2.11) Plot visualizations
   sc.pl.pca_scatter(qcadata, color='n_counts',show=False)
-  plt.savefig("{0}/01_raw_{1}_clustering_ncounts_PCA.png".format(plotsDir, bname) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{3}_{1}_{2}_ncounts_PCA.png".format(plotsDir, bname, analysis_stage, analysis_stage_num), bbox_inches='tight', dpi=175); plt.close('all')
 
   # Get plot parameters
   subplot_title_fontsize = 12
@@ -486,7 +496,7 @@ def calculate_plot_clustering(qcadata, plotsDir, bname, main_title = 'Clustering
     qcadata             (annData) : The ann data object that is used at the current stage of the analysis
   """
   # Check if correct clustering algorithm is passed. If not, then default to leiden
-  if clustering_algorithm is not in ['leiden', 'lovain']:
+  if clustering_algorithm not in ['leiden', 'lovain']:
     print("WARNING: Could not found clustering algorithm.\n\t- Values allowed: leiden or louvain.\n\t- Defaulting to leiden.")
     clustering_algorithm = 'leiden'
 
@@ -704,5 +714,3 @@ def plot_barplots(adata, plotsDir, bname, cluster_key='sampleID', cluster_bname=
   # Save plots in a 2x2 grid style
   plt.tight_layout() # For non-overlaping subplots
   plt.savefig("{0}/{4}_{3}_{1}_{2}_tissueID_cluster_barplot.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
-
-# 
