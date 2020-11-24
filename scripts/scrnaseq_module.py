@@ -1,6 +1,64 @@
 def myfunc():
     print('hello')
 
+def import_datasets(input_h5_files, sampleIdDict=None, batch_key=None):
+  """
+  Name:
+    import_datasets
+  
+  Description: 
+    Read 10x H5 datasets and return the annotation data object
+
+  Parameters:
+    input_h5_files (str)    : Input H5 file or list of files. For example:
+                              - input_h5_files  = 'input/manec/stomachBaseline/3520_Antrum_filtered_feature_bc_matrix.h5'
+                              - or
+                              - input_h5_files  = ['input/manec/stomachBaseline/3306_tumorA_filtered_feature_bc_matrix.h5',
+                                                   'input/manec/stomachBaseline/3306_tumorB_filtered_feature_bc_matrix.h5'
+                                                  ]
+    sampleIdDict   (dict)   : Dictionary of sample/tissue ids. This should be in exact same order as the input files. 
+                              For example:
+                              sampleIdDict =  {
+                                              '0':'3306_tumorA',
+                                              '1':'3306_tumorB',
+                                              }
+    batch_key      (str)    : Name of the batch key that will be used during the downstream analysis. For example: sampleID
+
+  Return: 
+    adata          (annData): The ann data object that is used at the current stage of the analysis
+  """
+
+  if isinstance(input_h5_files, str):
+    # 1.1) Reading the data in the anndata object individually
+    adata   = sc.read_10x_h5(input_h5_files)
+  elif isinstance(input_h5_files, list):
+    # 1.1.1) Reading the data in the anndata object individually
+    adatas  = [sc.read_10x_h5(f) for f in input_h5_files]
+    
+    # 1.1.2) Make variable names unique
+    for ad in adatas: print(ad.shape); ad.var_names_make_unique()
+
+    # 1.1.4) Merge 10x datasets for different mices
+    adata = adatas[0].concatenate(adatas[1:])
+
+    # 1.1.5) Add tissue id column for the batches
+    adata.obs[batch_key]  = adata.obs['batch'].map(sampleIdDict)
+    # In [16]: adata.obs
+    # Out[16]:
+    #                     batch sampleID
+    # AAACAAACAGCTATGA-0      0     S503
+    # AAACAAACCTACGAGC-0      0     S503
+
+  # 1.2) Make variable names unique
+  adata.var_names_make_unique()
+
+  # 1.3) Convert the sparse count matrices to dense representation
+  adata.X = adata.X.toarray()
+
+  # Return the ann data object
+  return adata
+
+
 def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, perplexity=30, random_state=2105):
   """
   Perform QC analysis and generate QC plots
@@ -100,7 +158,8 @@ def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, 
   features = ['log_counts', 'mt_frac', 'rb_frac']
   # If batch key is provided then plot that as well
   if batch_key is not None:
-    features.extend(batch_key)
+    features.append(batch_key)
+    print(features)
 
   plot_umap_tsne(qcadata, plotsDir, "{0}_filtered_UMAP_TSNE".format(bname), features=features, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy)
 
@@ -224,17 +283,61 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
   ax = fig.add_subplot(nrows,3, 2); sc.pl.umap(qcadata, legend_loc=None, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False)
   ax = fig.add_subplot(nrows,3, 3, projection='3d'); sc.pl.umap(qcadata, ax=ax, color=cluster_key, palette=final_color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False)
   # Partial visualizaton of a subset of groups in embedding
-  # m=3; n=4
   for i,b in enumerate(cluster_key_groups):
     print(i, b)
     m=4+i*3; n=5+i*3; o=6+i*3;
-    ax = fig.add_subplot(nrows,3, m);                  sc.pl.tsne(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(nrows,3, n);                  sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
-    ax = fig.add_subplot(nrows,3, o, projection='3d'); sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b]                 , ax=ax, color=cluster_key, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows,3, m);                  sc.pl.tsne(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=300, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows,3, n);                  sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b], legend_loc=None, ax=ax, color=cluster_key, size=300, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows,3, o, projection='3d'); sc.pl.umap(qcadata[qcadata.obs[cluster_key]== b]                 , ax=ax, color=cluster_key, size=300, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("{0}: {1} cells".format(b, cluster_cell_count[b]),fontsize= subplot_title_fontsize)
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/{3}_{1}_{2}_{3}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{4}_{1}_{2}_{3}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+
+def plot_selected_cluster_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', features='leiden_r1', additional_features=None, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy):
+  """[summary]
+
+  feature             = cluster_key
+  additional_features = ['sampleID', 'condition']
+  Returns:
+      [type]: [description]
+  """
+  # Convert the feature string to list
+  if isinstance(features, str):
+    features = features.split(" ")
+
+  # Add additional features to the features list
+  if (additional_features is None): additional_features = []
+  if additional_features:
+    if isinstance(additional_features, str):
+      # Append the additional feature to the features list
+      features.append(additional_features)
+    elif isinstance(additional_features, list):
+      # Extend the column names to the default features list
+      features.extend(additional_features)
+
+  # Get plot parameters
+  subplot_title_fontsize = 12
+  subplot_title_width    = 50
+  nrows                  = len(features)
+  fig                    = plt.figure(figsize=(50,8*nrows))
+  fig.suptitle(main_title)
+  
+  # Plot leiden/louvain UMAPs and TSNEs
+  m=n=o=p=q=0
+  for i, mfeature in enumerate(features):
+    m=1+i*5; n=2+i*5; o=3+i*5; p=4+i*5; q=5+i*5 
+    # print("- {0}) {6}: m={1}, n={2}, o={3}, p={4}, q={5}".format(i, m, n, o, p, q, mfeature))
+    ax = fig.add_subplot(nrows, 5, m);                  sc.pl.tsne(qcadata, legend_loc='on data', ax=ax, color=mfeature, palette=color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 5, n);                  sc.pl.tsne(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 5, o);                  sc.pl.umap(qcadata, legend_loc='on data', ax=ax, color=mfeature, palette=color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 5, p);                  sc.pl.umap(qcadata, legend_loc=None     , ax=ax, color=mfeature, palette=color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False);  ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    ax = fig.add_subplot(nrows, 5, q, projection='3d'); sc.pl.umap(qcadata                      , ax=ax, color=mfeature, palette=color_palette, size=100, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False); ax.set_title("\n".join(wrap("{0}".format(mfeature),subplot_title_width)),fontsize= subplot_title_fontsize)
+    
+  # Save the plot
+  plt.tight_layout()
+  plt.savefig("{0}/{3}_{1}_{2}_2D3D_UMAP_TSNE.png".format(plotsDir, bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+
 
 def save_adata_to_excel(qcadata, dataDir, outputFileName, obs_additional_colnames=None, append_new_colnames=False, obs_colnames=None, subset_genes=None):
   """
@@ -556,6 +659,42 @@ def import_marker_genes_list(marker_file, species="mouse"):
   else:
     marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   return marker_genes_dict
+
+def convert_markerlist_to_custom_scsa_format(marker_file, species="mouse"):
+  """
+  Name:
+    convert_markerlist_to_custom_scsa_format
+  
+  Description: 
+    Read the marker genes into a pandas dataframe and save it in a new file with SCSA custom marker gene list format
+
+  Parameters:
+    marker_file (Str):  - Marker genes file name with path.
+                        - Output format: CellTypes <tab> MarkerGenes (every gene in new line) and no headers
+                          ┌─────────────────────┬─────────┐
+                          │ CD34+               │ THY1    │
+                          │ CD34+               │ ENG     │
+                          │ CD34+               │ KIT     │
+                          │ CD34+               │ PROM1   │
+                          │ Natural killer cell │ NCAM1   │
+                          │ Natural killer cell │ FCGR3A  │
+                          │ Monocytes           │ CD14    │
+                          │ Monocytes           │ FCGR1A  │
+                          │ Monocytes           │ CD68    │
+                          │ Monocytes           │ S100A12 │
+                          └─────────────────────┴─────────┘
+
+  Return: 
+    marker_genes_dict (Dict): A dictionary containing marker genes list. The keys are celltypes and values are marker genes
+  """
+  marker_genes_dict = import_marker_genes_list(marker_file, species="mouse")
+  output_scsa_file  = "{0}_scsa.txt".format(get_file_info(marker_file)[3])
+  with open(output_scsa_file, 'w') as f:
+    for key, value in marker_genes_dict.items():
+      for v in value:
+        f.write('{0}\t{1}\n'.format(key, v))
+
+
 
 def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name):
   """
