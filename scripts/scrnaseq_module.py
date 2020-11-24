@@ -571,9 +571,11 @@ def get_color_palette(nelements=15):
     colPalette (list): The color palette based on number of clusters or samples
   """
   # Default colors
-  colPalette = sc.pl.palettes.vega_20_scanpy
+  
 
-  if 21 <= nelements <= 28:
+  if nelements <= 20:
+    colPalette = sc.pl.palettes.vega_20_scanpy
+  elif 21 <= nelements <= 28:
     # https://epub.wu.ac.at/1692/1/document.pdf
     colPalette = sc.pl.palettes.zeileis_28
   else:
@@ -619,6 +621,162 @@ def calculate_plot_clustering(qcadata, plotsDir, bname, main_title = 'Clustering
   print("- Visualize the clustering and how this is reflected by different technical covariates")
   cluster_features = ['{0}_r{1}'.format(clustering_algorithm, cres) for cres in cluster_resolution]
   plot_umap_tsne(adata, plotsDir, "{0}_clustering_all_leiden_UMAP_TSNE".format(bname), main_title = 'Clustering all resolution TSNE/UMAP', features=cluster_features, analysis_stage_num=analysis_stage_num, analysis_stage=analysis_stage, color_palette=color_palette)
+
+  return qcadata
+
+def annotate_with_scsa(qcadata, dataDir, cluster_key, marker_file, projName, marker_list_name, cellTypeColumnName="cellType", analysis_stage_num='05', analysis_stage='scsa_clusters'):
+  """
+  Name:
+    annotate_with_scsa
+  
+  Description: 
+    Run SCSA algorith on custom marker genes file and then assign annoations of 
+    the clusters obtained form scsa algorithm back to the original ann data
+    object. Bascially, add a new column of cellTypes that is assigned to each cluster. 
+
+  Parameters:
+    qcadata             (annData) : The ann data object that is used at the 
+                                    current stage of the analysis
+    
+    dataDir             (str)     : Path the data directory
+
+    projName            (str)     : Name of the project
+    
+    marker_list_name    (str)     : Name of the custom marker list
+    
+    cluster_key         (str)     : Name of the cluster key that will be used 
+                                    during the downstream analysis. 
+                                    Example: 'leiden_r1'
+
+    marker_file         (Str)     : - Marker genes file name with path.
+                                    - Output format: CellTypes <tab> MarkerGenes (every gene in new line) and no headers
+                                      ┌─────────────────────┬─────────┐
+                                      │ CD34+               │ THY1    │
+                                      │ CD34+               │ ENG     │
+                                      │ CD34+               │ KIT     │
+                                      │ CD34+               │ PROM1   │
+                                      │ Natural killer cell │ NCAM1   │
+                                      │ Natural killer cell │ FCGR3A  │
+                                      │ Monocytes           │ CD14    │
+                                      │ Monocytes           │ FCGR1A  │
+                                      │ Monocytes           │ CD68    │
+                                      │ Monocytes           │ S100A12 │
+                                      └─────────────────────┴─────────┘
+
+    cellTypeColumnName  (str)     : Name of the column that will be added to the
+                                    anndata object
+
+    analysis_stage_num  (int)     : Stage of the analysis that will be used in the
+                                    output filenames. Example: 03
+
+    analysis_stage      (str)     : Name of the stage of the analysis that will 
+                                    be used in the output filenames. 
+                                    Example: 'clustering'
+                      
+  Return: 
+    qcadata             (annData) : The ann data object that is used at the current stage of the analysis
+  """
+  # Get the scsa input data in the dataframe object
+  result = qcadata.uns['rank_genes_{0}'.format(cluster_key)]
+  groups = result['names'].dtype.names
+  scsaDF = pd.DataFrame({group + '_' + key[:1]: result[key][group] for group in groups for key in ['names', 'logfoldchanges','scores','pvals']})
+
+  # Save the scsaDF to the input scsa file 
+  scsa_input_marker_ann_file = "{0}/04.2_{1}_{2}_input.csv" .format(dataDir, projName, marker_list_name)
+  scsaDF.to_csv(scsa_input_marker_ann_file)
+
+  # 4.6.3) Run scsa and get the output in the output file
+  scsa_output_file = "{0}/04.3_{1}_{2}_output.csv" .format(dataDir, projName, marker_list_name)
+  # os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m txt -M {2} -N --norefdb".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
+  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m txt -M {2} ".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
+  # Generte the excel file and do not print anything while generating the file
+  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m ms-excel -M {2} -b --noprint".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
+
+  # 4.6.4) Read into the scsa annotation file
+  scsaadata = assign_scsa_annotaion_to_anndata(qcadata, cluster_key, scsaAnnotationFile, cellTypeColumnName="CellType", analysis_stage_num='05', analysis_stage='scsa_clusters')
+
+  return scsaadata
+
+def assign_scsa_annotaion_to_anndata(qcadata, cluster_key, scsaAnnotationFile, cellTypeColumnName="cellType", analysis_stage_num='05', analysis_stage='scsa_clusters'):
+  """
+  Name:
+    assign_scsa_annotaion_to_anndata
+  
+  Description: 
+    Assign annoations of the clusters obtained form scsa algorithm back to the 
+    original ann data object. Bascially, add a new column of cellTypes that 
+    is assigned to each cluster. 
+
+  Parameters:
+    qcadata             (annData) : The ann data object that is used at the 
+                                    current stage of the analysis
+
+    cluster_key         (str)     : Name of the cluster key that will be used 
+                                    during the downstream analysis. 
+                                    Example: 'leiden_r1'
+
+    scsaAnnotationFile  (str)     : The output file after SCSA annotation. Example:
+                                    +---------+------+--------------+-----------+-------+
+                                    | Cluster | Type |   Celltype   |   Score   | Times |
+                                    +---------+------+--------------+-----------+-------+
+                                    |       0 | ?    | Tcell        | 1.62|1.62 |   1.0 |
+                                    |       1 | ?    | Tcell|Immune | 1.62|1.62 |   1.0 |
+                                    |       2 | ?    | Pit|Tuft     | 1.26|0.81 |  1.55 |
+                                    |       3 | N    | -            | -         |     - |
+                                    |       4 | Good | G-cells      | 2.20      |  2.79 |
+                                    +---------+------+--------------+-----------+-------+
+
+    cellTypeColumnName  (str)     : Name of the column that will be added to the
+                                    anndata object
+
+    analysis_stage_num  (int)     : Stage of the analysis that will be used in the
+                                    output filenames. Example: 03
+
+    analysis_stage      (str)     : Name of the stage of the analysis that will 
+                                    be used in the output filenames. 
+                                    Example: 'clustering'
+                      
+  Return: 
+    qcadata             (annData) : The ann data object that is used at the current stage of the analysis
+  """
+
+  # Read into the scsa annotation file
+  # +---------+------+-------------------------------------------+---------------------------------------+--------------------+
+  # | Cluster | Type |                 Celltype                  |                 Score                 |       Times        |
+  # +---------+------+-------------------------------------------+---------------------------------------+--------------------+
+  # |       0 | ?    | Progenitor_at_Neck|Progenitor_cell        | 1.620185174601965|1.620185174601965   |                1.0 |
+  # |       1 | ?    | Progenitor_at_Neck|Progenitor_cell        | 1.620185174601965|1.620185174601965   |                1.0 |
+  # |       2 | Good | Parietal_Progenitor                       | 2.2088380249674486                    |   2.79861265843033 |
+  # |       3 | ?    | Progenitor_at_Neck|Progenitor_cell        | 1.620185174601965|1.620185174601965   |                1.0 |
+  # |       4 | ?    | Progenitor_at_Neck|Progenitor_cell        | 1.6201851746019649|1.6201851746019649 |                1.0 |
+  # |       5 | ?    | Progenitor_Procr_high|Parietal_Progenitor | 1.1031533135536862|0.8761049595722625 | 1.2591565673732457 |
+  # |       6 | ?    | Progenitor_cell|Progenitor_at_Neck        | 1.8267896507049208|1.3394332546624488 | 1.3638526924324355 |
+  # |       7 | N    | -                                         | -                                     |                  - |
+  # +---------+------+-------------------------------------------+---------------------------------------+--------------------+
+  # Get unique elements of a list mylist = [*{*mylist}] 
+
+  scsaAnnotationFile = "{0}_SCSA_Annotation.txt".format(get_file_info(scsa_output_file)[3])
+  scsaAnnotationDF   = pd.read_csv(scsaAnnotationFile, sep="\t", header=0, index_col=None)
+  scsaAnnotationDF.sort_values(['Cluster'], inplace=True)
+
+  # Get a new cell type column from the annotation of the cluster_key
+  qcadata.obs[cellTypeColumnName] = adata.obs[cluster_key]
+
+  # Get the dictionary of ClusterID and CellTypes
+  clusterDict = dict(zip(scsaAnnotationDF['Cluster'], scsaAnnotationDF['Celltype']))
+  # Replace '-' with the clusterX 
+  clusterDict = {key:"Cluster{0}".format(key) if value == '-' else value for key, value in clusterDict.items()}
+
+  # Get a new subcluster column. There are three steps
+  # 1) Convert the cateogry column to int column
+  qcadata.obs[cellTypeColumnName] = qcadata.obs[cellTypeColumnName].astype(int)
+  # 2) Map the dictionary to the clusters
+  qcadata.obs[cellTypeColumnName]=qcadata.obs[cellTypeColumnName].map(clusterDict)
+  # 3) Convert the column back to category column
+  qcadata.obs[cellTypeColumnName] = qcadata.obs[cellTypeColumnName].astype('category')
+
+  # List new categories
+  qcadata.obs[cellTypeColumnName].cat.categories
 
   return qcadata
 
