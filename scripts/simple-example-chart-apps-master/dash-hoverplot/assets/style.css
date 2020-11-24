@@ -1,0 +1,22 @@
+.rc-slider-track{
+    background-color: #fc8d59;
+}
+.rc-slider-handle{
+    border : solid 2px #fc8d59;
+}
+.rc-slider-dot-active,.rc-slider-dot-active{
+    border-color : #fc8d59;
+}
+.rc-slider-handle:hover{
+    border-color : #fc8d59;
+}
+
+#hover-text .gJuplL  {
+    background-color: #fc8d59;
+}
+a{
+    color: #fc8d59;
+}
+a:hover{
+    color: #e34a33;
+}

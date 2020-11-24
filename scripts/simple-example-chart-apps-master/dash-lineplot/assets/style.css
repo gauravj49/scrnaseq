@@ -1,0 +1,16 @@
+.rc-slider-track{
+    background-color: #E25F62;
+}
+.rc-slider-handle{
+    border : solid 2px #E25F62;
+}
+.rc-slider-dot-active,.rc-slider-dot-active{
+    border-color : #E25F62;
+}
+.rc-slider-handle:hover{
+    border-color : #E25F62;
+}
+.Select--multi .Select-value{
+    color: #E25F62;
+    background-color:#ECCFD0;
+}
