@@ -1,7 +1,7 @@
 def myfunc():
     print('hello')
 
-def import_datasets(input_h5_files, sampleIdDict=None, batch_key=None):
+def import_datasets(input_h5_files, sampleIdDict=None, batch_key=None, additional_batchDict=None, additional_batch_keys=None):
   """
   Name:
     import_datasets
@@ -10,19 +10,21 @@ def import_datasets(input_h5_files, sampleIdDict=None, batch_key=None):
     Read 10x H5 datasets and return the annotation data object
 
   Parameters:
-    input_h5_files (str)    : Input H5 file or list of files. For example:
-                              - input_h5_files  = 'input/manec/stomachBaseline/3520_Antrum_filtered_feature_bc_matrix.h5'
-                              - or
-                              - input_h5_files  = ['input/manec/stomachBaseline/3306_tumorA_filtered_feature_bc_matrix.h5',
-                                                   'input/manec/stomachBaseline/3306_tumorB_filtered_feature_bc_matrix.h5'
-                                                  ]
-    sampleIdDict   (dict)   : Dictionary of sample/tissue ids. This should be in exact same order as the input files. 
-                              For example:
-                              sampleIdDict =  {
-                                              '0':'3306_tumorA',
-                                              '1':'3306_tumorB',
-                                              }
-    batch_key      (str)    : Name of the batch key that will be used during the downstream analysis. For example: sampleID
+    input_h5_files         (str)    : Input H5 file or list of files. For example:
+                                    - input_h5_files  = 'input/manec/stomachBaseline/3520_Antrum_filtered_feature_bc_matrix.h5'
+                                    - or
+                                    - input_h5_files  = ['input/manec/stomachBaseline/3306_tumorA_filtered_feature_bc_matrix.h5',
+                                                        'input/manec/stomachBaseline/3306_tumorB_filtered_feature_bc_matrix.h5'
+                                                        ]
+    sampleIdDict          (dict)   : Dictionary of sample/tissue ids. This should be in exact same order as the input files. 
+                                     For example:
+                                     sampleIdDict =  {
+                                                     '0':'3306_tumorA',
+                                                     '1':'3306_tumorB',
+                                                     }
+    batch_key             (str)    : Name of the batch key that will be used during the downstream analysis. For example: sampleID
+
+    additional_batch_keys (str)    : Name of the additional batch key that will be used during the downstream analysis. For example: condition
 
   Return: 
     adata          (annData): The ann data object that is used at the current stage of the analysis
@@ -42,7 +44,8 @@ def import_datasets(input_h5_files, sampleIdDict=None, batch_key=None):
     adata = adatas[0].concatenate(adatas[1:])
 
     # 1.1.5) Add tissue id column for the batches
-    adata.obs[batch_key]  = adata.obs['batch'].map(sampleIdDict)
+    adata.obs[batch_key]              = adata.obs['batch'].map(sampleIdDict)
+    adata.obs[additional_batch_keys]  = adata.obs['batch'].map(additional_batchDict)
     # In [16]: adata.obs
     # Out[16]:
     #                     batch sampleID
@@ -158,7 +161,7 @@ def  perform_qc(adata, plotsDir, bname, batch_key='sampleID', num_neighbors=15, 
   features = ['log_counts', 'mt_frac', 'rb_frac']
   # If batch key is provided then plot that as well
   if batch_key is not None:
-    features.append(batch_key)
+    features.extend(batch_key)
     print(features)
 
   plot_umap_tsne(qcadata, plotsDir, "{0}_filtered_UMAP_TSNE".format(bname), features=features, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy)
@@ -292,7 +295,7 @@ def plot_individual_cluster_umap(qcadata, plotsDir, bname, cluster_key='sampleID
     m+=1; n+=1
 
   plt.tight_layout()
-  plt.savefig("{0}/{4}_{1}_{2}_{3}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{4}_{1}_{2}_{3}_TSNE_UMAP_individual_clusters.png".format(plotsDir, bname, cluster_bname, analysis_stage, analysis_stage_num) , bbox_inches='tight', dpi=100); plt.close('all')
 
 def plot_selected_cluster_umap_tsne(qcadata, plotsDir, bname, main_title = 'Filtered_raw', features='leiden_r1', additional_features=None, analysis_stage_num='01', analysis_stage='raw', color_palette=sc.pl.palettes.vega_20_scanpy):
   """[summary]
@@ -563,6 +566,9 @@ def get_color_palette(nelements=15):
   Description: 
     - Get a color palette based on number of clusters or samples
     - Provides a list of colors to use for plotting categorical annotation groups
+       1 <= nelements <= 20: colPalette = sc.pl.palettes.vega_20_scanpy
+      21 <= nelements <= 28: colPalette = sc.pl.palettes.zeileis_28
+      nelements > 28       : colPalette = sc.pl.palettes.godsnot_102
 
   Parameters:
     nelements  (str) : Number of elements (ex. number of clusters or samples)
@@ -575,9 +581,9 @@ def get_color_palette(nelements=15):
 
   if nelements <= 20:
     colPalette = sc.pl.palettes.vega_20_scanpy
-  elif 21 <= nelements <= 28:
-    # https://epub.wu.ac.at/1692/1/document.pdf
-    colPalette = sc.pl.palettes.zeileis_28
+  # elif 21 <= nelements <= 28:
+  #   # https://epub.wu.ac.at/1692/1/document.pdf
+  #   colPalette = sc.pl.palettes.zeileis_28
   else:
     # http://godsnotwheregodsnot.blogspot.de/2012/09/color-distribution-methodology.html
     colPalette = sc.pl.palettes.godsnot_102
@@ -624,7 +630,7 @@ def calculate_plot_clustering(qcadata, plotsDir, bname, main_title = 'Clustering
 
   return qcadata
 
-def annotate_with_scsa(qcadata, dataDir, cluster_key, marker_file, projName, marker_list_name, cellTypeColumnName="cellType", analysis_stage_num='05', analysis_stage='scsa_clusters'):
+def annotate_with_scsa(qcadata, dataDir, cluster_key, marker_file, projName, marker_list_name, cellTypeColumnName="cellType", analysis_stage_num='05', analysis_stage='scsa_clusters', foldchange=2.0, pvalue=0.05):
   """
   Name:
     annotate_with_scsa
@@ -665,13 +671,21 @@ def annotate_with_scsa(qcadata, dataDir, cluster_key, marker_file, projName, mar
 
     cellTypeColumnName  (str)     : Name of the column that will be added to the
                                     anndata object
+                                    Default = 'cellType'
 
     analysis_stage_num  (int)     : Stage of the analysis that will be used in the
-                                    output filenames. Example: 03
+                                    output filenames. 
+                                    Default: 05
 
     analysis_stage      (str)     : Name of the stage of the analysis that will 
                                     be used in the output filenames. 
-                                    Example: 'clustering'
+                                    Default: 'scsa_clusters'
+
+    foldchange          (float)   : Fold change threshold for marker filtering. 
+                                    Default = 2.0
+
+    pvalue              (float)   : P-value threshold for marker filtering.
+                                    Default = 0.05
                       
   Return: 
     qcadata             (annData) : The ann data object that is used at the current stage of the analysis
@@ -688,11 +702,13 @@ def annotate_with_scsa(qcadata, dataDir, cluster_key, marker_file, projName, mar
   # 4.6.3) Run scsa and get the output in the output file
   scsa_output_file = "{0}/04.3_{1}_{2}_output.csv" .format(dataDir, projName, marker_list_name)
   # os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m txt -M {2} -N --norefdb".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
-  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m txt -M {2} ".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
+  print("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f{3} -p {4} -o {1} -m txt -M {2} ".format(scsa_input_marker_ann_file, scsa_output_file, marker_file, foldchange, pvalue))
+  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f{3} -p {4} -o {1} -m txt -M {2} ".format(scsa_input_marker_ann_file, scsa_output_file,marker_file, foldchange, pvalue))
   # Generte the excel file and do not print anything while generating the file
-  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f1.5 -p 0.01 -o {1} -m ms-excel -M {2} -b --noprint".format(scsa_input_marker_ann_file, scsa_output_file,marker_file))
+  os.system("python3 scripts/SCSA/SCSA.py -d scripts/SCSA/whole.db -i {0} -g Mouse -s scanpy -E --Gensymbol -f{3} -p {4} -o {1} -m ms-excel -M {2} -b --noprint".format(scsa_input_marker_ann_file, scsa_output_file,marker_file, foldchange, pvalue))
 
   # 4.6.4) Read into the scsa annotation file
+  scsaAnnotationFile = "{0}_SCSA_Annotation.txt".format(get_file_info(scsa_output_file)[3])
   scsaadata = assign_scsa_annotaion_to_anndata(qcadata, cluster_key, scsaAnnotationFile, cellTypeColumnName="CellType", analysis_stage_num='05', analysis_stage='scsa_clusters')
 
   return scsaadata
@@ -755,7 +771,6 @@ def assign_scsa_annotaion_to_anndata(qcadata, cluster_key, scsaAnnotationFile, c
   # +---------+------+-------------------------------------------+---------------------------------------+--------------------+
   # Get unique elements of a list mylist = [*{*mylist}] 
 
-  scsaAnnotationFile = "{0}_SCSA_Annotation.txt".format(get_file_info(scsa_output_file)[3])
   scsaAnnotationDF   = pd.read_csv(scsaAnnotationFile, sep="\t", header=0, index_col=None)
   scsaAnnotationDF.sort_values(['Cluster'], inplace=True)
 
@@ -811,11 +826,11 @@ def import_marker_genes_list(marker_file, species="mouse"):
   """
   marker_genesDF    = pd.read_csv(marker_file, sep="\t", header=0, index_col=None)
   if species == 'mouse':
-    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.lower().capitalize() for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.replace(" ", "").lower().capitalize() for x in n.rstrip(',').split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   elif species == 'human':
-    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.upper()              for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.replace(" ", "").upper()              for x in n.rstrip(',').split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   else:
-    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x for x in n.split(',')] for i in g.values.tolist() for n in i]))).to_dict()
+    marker_genes_dict = marker_genesDF.groupby('CellTypes')[['MarkerGenes']].apply(lambda g: list(itertools.chain.from_iterable([[x.replace(" ", "") for x in n.rstrip(',').split(',')] for i in g.values.tolist() for n in i]))).to_dict()
   return marker_genes_dict
 
 def convert_markerlist_to_custom_scsa_format(marker_file, species="mouse"):
@@ -843,18 +858,17 @@ def convert_markerlist_to_custom_scsa_format(marker_file, species="mouse"):
                           └─────────────────────┴─────────┘
 
   Return: 
-    marker_genes_dict (Dict): A dictionary containing marker genes list. The keys are celltypes and values are marker genes
+    None: Saves the with marker genes file name with path
   """
   marker_genes_dict = import_marker_genes_list(marker_file, species="mouse")
   output_scsa_file  = "{0}_scsa.txt".format(get_file_info(marker_file)[3])
   with open(output_scsa_file, 'w') as f:
     for key, value in marker_genes_dict.items():
       for v in value:
+        # Save the key <tab> value in the output file
         f.write('{0}\t{1}\n'.format(key, v))
 
-
-
-def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name):
+def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespresent, marker_genes_cellTypes, marker_list_name, color_palette=sc.pl.palettes.vega_20_scanpy):
   """
   Generate the UMAPs and TSNEs for each marker categories
 
@@ -883,12 +897,12 @@ def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespre
     nrows  = ngenes + 2
     adata.obs['{0}_marker_expr'.format(k)] = adata.X[:,ids].mean(1)
 
-    fig = plt.figure(figsize=(25,6*nrows))
+    fig = plt.figure(figsize=(35,6*nrows))
     fig.suptitle(marker_list_name)
     # Plot cluster
-    ax = fig.add_subplot(nrows, 3, 1                 ); sc.pl.tsne(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3,                  show=False, title="{0} TSNE".format(cluster_key))
-    ax = fig.add_subplot(nrows, 3, 2);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
-    ax = fig.add_subplot(nrows, 3, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=sc.pl.palettes.vega_20, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 1                 ); sc.pl.tsne(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3,                  show=False, title="{0} TSNE".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 2);                  sc.pl.umap(adata, legend_loc='on data', ax=ax, color="{0}".format(cluster_key), palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False, title="{0} UMAP".format(cluster_key))
+    ax = fig.add_subplot(nrows, 3, 3, projection='3d'); sc.pl.umap(adata                      , ax=ax, color="{0}".format(cluster_key), palette=color_palette, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, projection='3d', show=False, title="{0} UMAP".format(cluster_key))
     
     # Plots mean marker genes
     ax = fig.add_subplot(nrows, 3, 4);                  sc.pl.tsne(adata, legend_loc=None     , ax=ax, color='{0}_marker_expr'.format(k), color_map=mymap, size=50, edgecolor='k', linewidth=0.05, alpha=0.9, hspace=0.35, wspace=0.3, show=False); ax.set_title("Mean {0}".format("\n".join(wrap("{0}:{1}".format(k,validgenes),subplot_title_width)),fontsize= subplot_title_fontsize))
@@ -907,7 +921,7 @@ def plot_manual_marker_list_genes(adata, markerDir, bname, cluster_key, genespre
     plt.tight_layout()
     plt.savefig("{0}/{1}_{2}_{3}_TSNE_UMAP.png".format(markerDir, bname, marker_list_name, k) , bbox_inches='tight', dpi=100); plt.close('all')
 
-def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_key, genespresent, marker_genes_dict, marker_list_name, analysis_stage_num='04', analysis_stage='norm'):
+def plot_additional_marker_gene_visualization(adata, additional_marker_plotsDir, bname, cluster_key, genespresent, marker_genes_dict, marker_list_name, analysis_stage_num='04', analysis_stage='norm'):
   """
   Generate the UMAPs and TSNEs for each marker categories
 
@@ -944,7 +958,7 @@ def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_k
   #     zeros representing no gene counts. dotplot visualization does not work for 
   #     scaled or corrected matrices in which cero counts had been replaced by other values.
   sc.pl.dotplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, figsize=(40,12), show=False, dendrogram=True)
-  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_dotplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_dotplot.png".format(additional_marker_plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
   # 5.2.3) Matrix plots: 
   #   - The matrixplot shows the mean expression of a gene in a group by 
@@ -953,9 +967,9 @@ def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_k
   #     and/or scaled counts. By default raw counts are used.
   # sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
   sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False,cmap='Reds',  figsize=(40,12), standard_scale='group', show=False)
-  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_matrixplot.png".format(additional_marker_plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
   sc.pl.matrixplot(adata, marker_genes_filtered_dict, groupby=cluster_key, dendrogram=True, use_raw=False, cmap='Reds', figsize=(40,12), standard_scale='group', vmin=0.5, show=False)
-  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_vmin0_05_matrixplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_scaled_vmin0_05_matrixplot.png".format(additional_marker_plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
   # Calculate the dendrogram again
   sc.tl.dendrogram(adata, groupby=cluster_key)
@@ -963,7 +977,7 @@ def plot_additional_marker_gene_visualization(adata, markerDir, bname, cluster_k
   #   - The track plot shows the same information as the heatmap, but, 
   #     instead of a color scale, the gene expression is represented by height
   sc.pl.tracksplot(adata, marker_genes_filtered_dict, groupby=cluster_key, log=True, dendrogram=True, show=False, figsize=(50,30))
-  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_trackplot.png".format(plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
+  plt.savefig("{0}/{1}_{2}_{3}_{4}_{5}_trackplot.png".format(additional_marker_plotsDir, analysis_stage_num, analysis_stage, bname, cluster_key, marker_list_name) , bbox_inches='tight', dpi=175); plt.close('all')
 
 
 def plot_barplots(adata, plotsDir, bname, cluster_key='sampleID', cluster_bname='sampleID', analysis_stage_num='01', analysis_stage='raw', color_palette="vega_20"):
